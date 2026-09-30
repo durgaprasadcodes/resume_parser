@@ -1,0 +1,42 @@
+fastapi
+uvicorn[standard]
+
+# File Uploading
+python-multipart
+
+# Database
+sqlalchemy
+alembic
+psycopg2-binary
+pgvector
+
+# Authentication
+authlib
+python-jose[cryptography]
+itsdangerous
+pwdlib[argon2]
+
+# Environment
+python-dotenv
+
+# Cache / OTP
+redis
+
+# Validation
+pydantic
+pydantic[email]
+
+# PDF Processing
+PyMuPDF
+
+# LangChain / RAG
+langchain
+langchain-core
+langchain-community
+langchain-text-splitters
+
+# LLM
+langchain-groq
+
+# Embeddings
+sentence-transformers
