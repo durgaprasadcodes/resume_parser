@@ -5,15 +5,18 @@ from config import NEON_DATABASE_URL
 
 engine = create_engine(NEON_DATABASE_URL)
 
-SessionLocal = sessionmaker(autoflush=False,autocommit=False,bind=engine)
+SessionLocal = sessionmaker(autoflush=False, autocommit=False, bind=engine)
 
-async def get_db():
+
+def get_db():
     db = SessionLocal()
-    try:    
+    try:
         yield db
     except Exception:
         db.rollback()
+        raise
     finally:
         db.close()
-        
+
+
 BASE = declarative_base()

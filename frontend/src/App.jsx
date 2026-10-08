@@ -1,55 +1,64 @@
 import './App.css'
 import { createBrowserRouter, RouterProvider } from 'react-router-dom'
 import Home from './pages/Home'
-import Upload from './pages/Upload'
 import Analysis from './pages/Analysis'
 import Profile from './pages/Profile'
-import Auth from './auth/Auth'
+import Login from './auth/Auth'
 import NotFound from './pages/NotFound'
 import Loading from './anim/Loading'
-import ProtectedRoute from './pages/ProtectedRoute'
+import OTPVerification from './auth/OTPVerification.jsx'
+import { AuthProvider } from './auth/AuthContext.jsx'
+import { ProtectedRoute, PublicOnlyRoute } from './pages/ProtectedRoute'
 
 function App() {
   const router = createBrowserRouter([
     {
       path: "/",
-      element: <Home />,
+      element: <Home />
     },
+
     {
-      path: "/auth",
-      element: <Auth />
+      path: "/login",
+      element: (
+        <PublicOnlyRoute>
+          <Login />
+        </PublicOnlyRoute>
+      )
     },
+
     {
-      path: "/load",
-      element: <Loading />
+      path: "/otp",
+      element: (
+        <PublicOnlyRoute>
+          <OTPVerification />
+        </PublicOnlyRoute>
+      )
     },
+
     {
       element: <ProtectedRoute />,
       children: [
         {
-          path: "/upload",
-          element: <Upload />
-        },
-        // {
-        //   path: "/analysis",
-        //   element: <Analysis />
-        // },
-        {
           path: "/profile",
           element: <Profile />
+        },
+        {
+          path: "/analysis",
+          element: <Analysis />
         }
       ]
     },
     {
       path: "*",
       element: <NotFound />
-    },
-    {
-      path: "/analysis",
-      element: <Analysis />
-    },
-  ])
-  return <RouterProvider router={router} />
+    }
+  ]);
+
+  return (
+    <AuthProvider>
+      <RouterProvider router={router} />
+    </AuthProvider>
+  )
 }
 
 export default App

@@ -8,8 +8,7 @@ from dotenv import load_dotenv
 from pwdlib import PasswordHash
 from email.message import EmailMessage
 from slowapi.util import get_remote_address
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from fastapi import BackgroundTasks, HTTPException, status
+from slowapi import Limiter
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +17,6 @@ load_dotenv()
 PassDriver = PasswordHash.recommended()
 
 limiter = Limiter(key_func=get_remote_address)
-limiter.add
 
 
 def hash_password(password: str | int) -> str:
@@ -38,20 +36,21 @@ def hash_refresh_token(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
 
+OTP_EXPIRY_SECONDS = 300
 IS_PRODUCTION = os.getenv("ENV") == "production"
 
 SECREST_CODE = os.getenv("SECREST_CODE")
 ALGORITH = os.getenv("ALGORITH")
-ACCESS_TOKEN_EXPIRY_TIME = os.getenv("ACCESS_TOKEN_EXPIRY_TIME")
-REFRESH_TOKEN_EXPIRY_TIME = os.getenv("REFRESH_TOKEN_EXPIRY_TIME")
+ACCESS_TOKEN_EXPIRY_TIME = int(os.getenv("ACCESS_TOKEN_EXPIRY_TIME"))
+REFRESH_TOKEN_EXPIRY_TIME = int(os.getenv("REFRESH_TOKEN_EXPIRY_TIME"))
 
 
 NEON_DATABASE_URL = os.getenv("NEON_DATABASE_URL")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
-REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
+REDIS_HOST = os.getenv("REDIS_HOST")
 REDIS_PASSWORD = os.getenv("REDIS_PASSWORD")
-REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
+REDIS_PORT = int(os.getenv("REDIS_PORT"))
 
 REDIS_CLIENT = redis.Redis(
     host=REDIS_HOST,
@@ -61,8 +60,8 @@ REDIS_CLIENT = redis.Redis(
     password=REDIS_PASSWORD,
 )
 
-EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.gmail.com")
-EMAIL_PORT = int(os.getenv("EMAIL_PORT", 465))
+EMAIL_HOST = os.getenv("EMAIL_HOST")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT"))
 EMAIL_USERNAME = os.getenv("EMAIL_USERNAME")
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
 

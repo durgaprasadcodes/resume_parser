@@ -1,11 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import (
-    Column,
-    String,
-    ForeignKey,
-    DateTime,
-)
+from sqlalchemy import Column, String, ForeignKey, DateTime, Boolean
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
 from database import BASE
@@ -23,6 +18,7 @@ class Users(BASE):
         unique=True,
         index=True,
     )
+    is_verified = Column(Boolean, default=False)
     picture = Column(String(1000))
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
