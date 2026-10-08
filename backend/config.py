@@ -60,12 +60,6 @@ REDIS_CLIENT = redis.Redis(
     password=REDIS_PASSWORD,
 )
 
-EMAIL_HOST = os.getenv("EMAIL_HOST")
-EMAIL_PORT = int(os.getenv("EMAIL_PORT"))
-EMAIL_USERNAME = os.getenv("EMAIL_USERNAME")
-EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
-
-
 FRONTEND_URL = os.getenv("FRONTEND_URL")
 
 BREVO_API_KEY = os.environ.get("BREVO_API_KEY")
