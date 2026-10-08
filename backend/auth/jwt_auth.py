@@ -56,8 +56,9 @@ async def register(
         "password": hash_password(user.password),
     }
 
+    otp_key = f"CURRENT_USER_DATA_{user.email}"
     REDIS_CLIENT.set(
-        f"CURRENT_USER_DATA_{user.email}",
+        otp_key,
         json.dumps(user_data),
         ex=OTP_EXPIRY_SECONDS,
     )
@@ -66,6 +67,12 @@ async def register(
     REDIS_CLIENT.delete(f"OTP_ATTEMPTS_{user.email}")
 
     backgroundtasks.add_task(send_email, user.email, otp)
+
+    print("========== REGISTER DEBUG ==========", flush=True)
+    print("OTP KEY:", otp_key, flush=True)
+    print("OTP EXISTS:", REDIS_CLIENT.exists(otp_key), flush=True)
+    print("OTP TTL:", REDIS_CLIENT.ttl(otp_key), flush=True)
+    print("====================================", flush=True)
 
     return {"message": "OTP sent successfully", "email": user.email}
 
@@ -99,7 +106,8 @@ async def login(
     refresh_token_record = RefreshToken(
         refresh_token=hashed_refresh_token,
         user_id=db_user.id,
-        expires_at=datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRY_TIME),
+        expires_at=datetime.now(timezone.utc)
+        + timedelta(days=REFRESH_TOKEN_EXPIRY_TIME),
     )
 
     db.add(refresh_token_record)
@@ -138,7 +146,10 @@ async def login(
 @router.post("/verify-otp")
 @limiter.limit("5/minute")
 async def verify_otp(
-    request: Request, response: Response, data: OTPVerificationSchema, db: Session = Depends(get_db)
+    request: Request,
+    response: Response,
+    data: OTPVerificationSchema,
+    db: Session = Depends(get_db),
 ):
     email = data.email
     entered_otp = data.otp
@@ -225,7 +236,8 @@ async def verify_otp(
     refresh_token_record = RefreshToken(
         refresh_token=hashed_refresh_token,
         user_id=new_user.id,
-        expires_at=datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRY_TIME),
+        expires_at=datetime.now(timezone.utc)
+        + timedelta(days=REFRESH_TOKEN_EXPIRY_TIME),
     )
 
     db.add(refresh_token_record)
@@ -251,6 +263,18 @@ async def verify_otp(
         samesite="none" if IS_PRODUCTION else "lax",
     )
 
+    otp_key = f"RESUME_PARSER_OTP_{email}"
+
+    print("========== VERIFY DEBUG ==========", flush=True)
+    print("OTP KEY:", otp_key, flush=True)
+    print("OTP EXISTS:", REDIS_CLIENT.exists(otp_key), flush=True)
+    print("OTP TTL:", REDIS_CLIENT.ttl(otp_key), flush=True)
+
+    stored_otp = REDIS_CLIENT.get(otp_key)
+
+    print("STORED OTP EXISTS:", stored_otp is not None, flush=True)
+    print("==================================", flush=True)
+
     return {
         "message": "Account created successfully.",
         "email": new_user.email,
@@ -273,4 +297,3 @@ async def get_current_user(
         "picture": user.picture,
         "is_verified": user.is_verified,
     }
-
