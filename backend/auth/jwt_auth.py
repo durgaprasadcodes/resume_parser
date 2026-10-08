@@ -17,7 +17,7 @@ from config import (
 )
 from config import (
     limiter,
-    send_email,
+    send_otp_email,
     generate_otp,
     REDIS_CLIENT,
     FRONTEND_URL,
@@ -66,7 +66,7 @@ async def register(
     # Reset attempt counter on new OTP generation
     REDIS_CLIENT.delete(f"OTP_ATTEMPTS_{user.email}")
 
-    backgroundtasks.add_task(send_email, user.email, otp)
+    backgroundtasks.add_task(send_otp_email, user.email, otp)
 
     print("========== REGISTER DEBUG ==========", flush=True)
     print("OTP KEY:", otp_key, flush=True)
@@ -297,3 +297,13 @@ async def get_current_user(
         "picture": user.picture,
         "is_verified": user.is_verified,
     }
+
+
+@router.get("/test-brevo")
+async def test_brevo():
+
+    result = await send_otp_email(
+        recipient_email="durgaprasad04289@gmail.com", otp="123456"
+    )
+
+    return {"message": "Email sent successfully", "brevo": result}
