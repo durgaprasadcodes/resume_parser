@@ -30,10 +30,10 @@ function App() {
           path: "/upload",
           element: <Upload />
         },
-        {
-          path: "/analysis",
-          element: <Analysis />
-        },
+        // {
+        //   path: "/analysis",
+        //   element: <Analysis />
+        // },
         {
           path: "/profile",
           element: <Profile />
@@ -43,7 +43,11 @@ function App() {
     {
       path: "*",
       element: <NotFound />
-    }
+    },
+    {
+      path: "/analysis",
+      element: <Analysis />
+    },
   ])
   return <RouterProvider router={router} />
 }

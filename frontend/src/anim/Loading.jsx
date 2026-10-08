@@ -20,7 +20,7 @@ export default function Loading() {
                 autoplay
             />
             <DotLottieReact
-                src="https://lottie.host/4795d50f-50e7-4843-90b5-f540797fd029/ls9VppqV3D.lottie"
+                src=""
                 loop
                 autoplay
 

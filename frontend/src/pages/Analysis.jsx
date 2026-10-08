@@ -1,7 +1,8 @@
-import React from 'react'
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { use, useEffect, useState } from "react";
 
 export default function Analysis() {
-    return (
-        <div>Analysis</div>
-    )
+    const [llmResponse, SetLLmResponse] = useState("")
+    return <ReactMarkdown remarkPlugins={[remarkGfm]}>{llmResponse}</ReactMarkdown>;
 }
