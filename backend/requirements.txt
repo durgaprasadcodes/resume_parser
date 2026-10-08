@@ -22,7 +22,7 @@ python-dotenv
 
 # Cache / OTP
 redis
-aiosmtplib
+httpx
  
 # Validation
 pydantic
@@ -30,7 +30,7 @@ pydantic[email]
 email-validator
 
 # PDF Processing
-PyMuPDF
+PyMuPDF 
 
 # LangChain / RAG
 langchain
