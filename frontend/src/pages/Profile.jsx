@@ -1,36 +1,30 @@
-import "../styles/profile.css"
+import { useAuth } from "../auth/AuthContext";
+import { Link } from "react-router-dom";
+import Navbar from "../components/Navbar";
+
 
 function Profile() {
+
+    const { user } = useAuth();
+
+
     return (
-        <div className="dashboard">
+        <>
+            <Navbar />
 
-            {/* Navbar */}
-            <nav className="navbar">
-                <div className="logo">Hirelense.ai</div>
-
-                <div className="nav-links">
-                    <a href="/dashboard" className="active">
-                        Dashboard
-                    </a>
-                    <a href="/profile">Profile</a>
-                    <button className="logout-btn">
-                        Logout
-                    </button>
-                </div>
-            </nav>
-
-            {/* Main Content */}
-            <main className="dashboard-content">
+            <div className="page-container dashboard-page">
 
                 {/* Welcome */}
                 <section className="welcome-section">
-                    <div>
-                        <h1>Welcome back, Rolex 👋</h1>
-                        <p>
-                            Continue building your skills and career.
-                        </p>
-                    </div>
+                    <h1>
+                        Welcome back, {user?.name || "User"} 👋
+                    </h1>
+                    <p>
+                        Continue building your skills and career
+                        with HireLense.ai.
+                    </p>
                 </section>
+
 
                 {/* Stats */}
                 <section className="stats-grid">
@@ -69,11 +63,13 @@ function Profile() {
 
                 </section>
 
-                {/* Bottom Section */}
+
+                {/* Bottom Grid */}
                 <section className="dashboard-grid">
 
                     {/* Recent Activity */}
                     <div className="panel">
+
                         <div className="panel-header">
                             <h2>Recent Activity</h2>
                             <span>View all</span>
@@ -85,7 +81,6 @@ function Profile() {
                                 <div className="activity-icon">
                                     📄
                                 </div>
-
                                 <div>
                                     <h3>Resume analyzed</h3>
                                     <p>Today, 10:30 AM</p>
@@ -96,7 +91,6 @@ function Profile() {
                                 <div className="activity-icon">
                                     🎯
                                 </div>
-
                                 <div>
                                     <h3>Skills extracted</h3>
                                     <p>Yesterday, 6:20 PM</p>
@@ -107,7 +101,6 @@ function Profile() {
                                 <div className="activity-icon">
                                     👤
                                 </div>
-
                                 <div>
                                     <h3>Profile updated</h3>
                                     <p>2 days ago</p>
@@ -115,7 +108,9 @@ function Profile() {
                             </div>
 
                         </div>
+
                     </div>
+
 
                     {/* Quick Actions */}
                     <div className="panel">
@@ -126,15 +121,15 @@ function Profile() {
 
                         <div className="actions">
 
-                            <button className="action-btn primary">
+                            <Link to="/analysis" className="action-btn primary">
                                 <span>📤</span>
-                                Upload Resume
-                            </button>
+                                Upload & Analyze Resume
+                            </Link>
 
-                            <button className="action-btn">
+                            <Link to="/analysis" className="action-btn">
                                 <span>🔍</span>
-                                Analyze Resume
-                            </button>
+                                View Past Analyses
+                            </Link>
 
                             <button className="action-btn">
                                 <span>👤</span>
@@ -147,9 +142,8 @@ function Profile() {
 
                 </section>
 
-            </main>
-
-        </div>
+            </div>
+        </>
     );
 }
 

@@ -19,7 +19,13 @@ def get_user_info(
             detail="Not authenticated",
         )
 
-    payload = decode_access_token(access_token)
+    try:
+        payload = decode_access_token(access_token)
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired access token",
+        )
 
     if not payload:
         raise HTTPException(

@@ -38,7 +38,7 @@ class RefreshToken(BASE):
     )
     expires_at = Column(DateTime, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
-    revoked_at = Column(DateTime)
+    revoked = Column(Boolean,default=False)
     revoked_by_id = Column(UUID(as_uuid=True), ForeignKey("refresh_tokens.id"))
 
     user = relationship("Users", back_populates="refresh_tokens")

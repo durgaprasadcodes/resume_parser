@@ -37,7 +37,7 @@ def hash_refresh_token(token: str) -> str:
 
 
 OTP_EXPIRY_SECONDS = 300
-IS_PRODUCTION = os.getenv("ENV") == "production"
+IS_PRODUCTION = os.getenv("ENV") == "production" or os.getenv("RENDER") is not None
 
 SECREST_CODE = os.getenv("SECREST_CODE")
 ALGORITH = os.getenv("ALGORITH")

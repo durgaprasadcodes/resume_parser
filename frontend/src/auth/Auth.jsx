@@ -1,10 +1,13 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api/api";
-// import "./Login.css";
+import { useAuth } from "./AuthContext";
+
 
 function Login() {
+
     const navigate = useNavigate();
+    const { login } = useAuth();
 
     const [isSignup, setIsSignup] = useState(false);
 
@@ -42,16 +45,24 @@ function Login() {
             });
 
             if (response.status === 200) {
+                const { access_token, refresh_token, user: userData } = response.data;
+                login(userData || { email: formData.email }, { access_token, refresh_token });
                 navigate("/profile", {
                     replace: true
                 });
             }
 
         } catch (error) {
-            setError(
-                error.response?.data?.detail ||
-                "Login failed. Please check your credentials."
-            );
+            const detail = error.response?.data?.detail;
+            let errorMsg = "Login failed. Please check your credentials.";
+            if (typeof detail === "string") {
+                errorMsg = detail;
+            } else if (Array.isArray(detail)) {
+                errorMsg = detail.map((d) => d.msg || d.message || JSON.stringify(d)).join(", ");
+            } else if (detail?.msg) {
+                errorMsg = detail.msg;
+            }
+            setError(errorMsg);
         } finally {
             setLoading(false);
         }
@@ -109,10 +120,16 @@ function Login() {
             }
 
         } catch (error) {
-            setError(
-                error.response?.data?.detail ||
-                "Registration failed. Please try again."
-            );
+            const detail = error.response?.data?.detail;
+            let errorMsg = "Registration failed. Please try again.";
+            if (typeof detail === "string") {
+                errorMsg = detail;
+            } else if (Array.isArray(detail)) {
+                errorMsg = detail.map((d) => d.msg || d.message || JSON.stringify(d)).join(", ");
+            } else if (detail?.msg) {
+                errorMsg = detail.msg;
+            }
+            setError(errorMsg);
         } finally {
             setLoading(false);
         }
@@ -145,20 +162,21 @@ function Login() {
 
             <div className="auth-container">
 
-                {/* LEFT SIDE */}
+                {/* LEFT SIDE — Brand panel */}
                 <div className="auth-brand">
 
-                    <h1>LearnX</h1>
+                    <h1>Hirelense.ai</h1>
 
                     <p>
-                        Learn smarter. Build faster.
-                        Grow your career.
+                        AI-powered resume parser that extracts skills,
+                        experience, and insights — so you can focus on
+                        building your career.
                     </p>
 
                 </div>
 
 
-                {/* RIGHT SIDE */}
+                {/* RIGHT SIDE — Form */}
                 <div className="auth-card">
 
                     {isSignup ? (
@@ -166,7 +184,7 @@ function Login() {
                             <h2>Create your account</h2>
 
                             <p className="auth-subtitle">
-                                Start your learning journey with LearnX.
+                                Start your journey with HireLense.ai
                             </p>
                         </>
                     ) : (
@@ -174,7 +192,7 @@ function Login() {
                             <h2>Welcome back</h2>
 
                             <p className="auth-subtitle">
-                                Sign in to continue to your profile.
+                                Sign in to continue to your dashboard.
                             </p>
                         </>
                     )}
@@ -196,7 +214,7 @@ function Login() {
 
                     <form onSubmit={handleSubmit}>
 
-                        {/* NAME - ONLY SIGNUP */}
+                        {/* NAME — ONLY SIGNUP */}
                         {isSignup && (
                             <div className="form-group">
 
@@ -258,7 +276,7 @@ function Login() {
                         </div>
 
 
-                        {/* CONFIRM PASSWORD - ONLY SIGNUP */}
+                        {/* CONFIRM PASSWORD — ONLY SIGNUP */}
                         {isSignup && (
                             <div className="form-group">
 

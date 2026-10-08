@@ -10,8 +10,9 @@ export function ProtectedRoute({ children }) {
     if (loading) {
 
         return (
-            <div>
-                Checking authentication...
+            <div className="loading-overlay">
+                <div className="spinner" />
+                <span>Checking authentication...</span>
             </div>
         );
 
@@ -42,8 +43,9 @@ export function PublicOnlyRoute({ children }) {
     if (loading) {
 
         return (
-            <div>
-                Checking authentication...
+            <div className="loading-overlay">
+                <div className="spinner" />
+                <span>Checking authentication...</span>
             </div>
         );
 

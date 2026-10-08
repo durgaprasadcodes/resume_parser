@@ -3,7 +3,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 from config import NEON_DATABASE_URL
 
-engine = create_engine(NEON_DATABASE_URL)
+engine = create_engine(NEON_DATABASE_URL,pool_pre_ping=True,pool_recycle=900)
 
 SessionLocal = sessionmaker(autoflush=False, autocommit=False, bind=engine)
 
