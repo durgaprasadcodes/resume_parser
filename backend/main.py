@@ -12,9 +12,6 @@ app = FastAPI(
 
 allowed_origins = [
     "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "http://localhost:3000",
-    "https://hirelense.ai.vercel.app",
     "https://hirelense-ai.vercel.app",
 ]
 if FRONTEND_URL and FRONTEND_URL not in allowed_origins:
