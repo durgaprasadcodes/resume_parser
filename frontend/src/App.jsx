@@ -7,6 +7,7 @@ import Login from './auth/Auth'
 import NotFound from './pages/NotFound'
 import Loading from './anim/Loading'
 import OTPVerification from './auth/OTPVerification.jsx'
+import ForgotPassword from './auth/ForgotPassword.jsx'
 import { AuthProvider } from './auth/AuthContext.jsx'
 import { ProtectedRoute, PublicOnlyRoute } from './pages/ProtectedRoute'
 
@@ -31,6 +32,15 @@ function App() {
       element: (
         <PublicOnlyRoute>
           <OTPVerification />
+        </PublicOnlyRoute>
+      )
+    },
+
+    {
+      path: "/reset-password",
+      element: (
+        <PublicOnlyRoute>
+          <ForgotPassword />
         </PublicOnlyRoute>
       )
     },

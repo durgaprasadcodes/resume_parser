@@ -157,6 +157,10 @@ function Login() {
         });
     };
 
+    const handleForgotPassword = () => {
+        navigate("/reset-password");
+    }
+
     return (
         <div className="auth-page">
 
@@ -302,9 +306,7 @@ function Login() {
                             <div className="forgot-password">
                                 <button
                                     type="button"
-                                    onClick={() => {
-                                        // Add forgot password flow later
-                                    }}
+                                    onClick={handleForgotPassword}
                                 >
                                     Forgot password?
                                 </button>

@@ -125,7 +125,7 @@ function OTPVerification() {
 
                 /* Short delay so the user sees the success message */
                 setTimeout(() => {
-                    navigate("/profile", { replace: true });
+                    navigate("/", { replace: true });
                 }, 600);
             }
 
@@ -165,7 +165,7 @@ function OTPVerification() {
                 </p>
 
                 <p className="otp-expiry">
-                    ⏱ Code expires in 1 minute
+                    ⏱ Code expires in 5 minute
                 </p>
 
 

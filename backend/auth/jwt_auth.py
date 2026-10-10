@@ -14,6 +14,7 @@ from schemas.schema import (
     RefreshTokenRequest,
     ForgotPasswordRequest,
     VerifyResetOTPRequest,
+    ChangePasswordRequest,
 )
 from config import (
     hash_password,
