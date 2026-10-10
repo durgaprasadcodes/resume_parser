@@ -1,14 +1,15 @@
 import os
-import redis
 import secrets
 import logging
 import hashlib
 import httpx
+from slowapi import Limiter
 from dotenv import load_dotenv
+from upstash_redis import Redis
 from pwdlib import PasswordHash
+from fastapi import Request, Response
 from email.message import EmailMessage
 from slowapi.util import get_remote_address
-from slowapi import Limiter
 
 logger = logging.getLogger(__name__)
 
@@ -48,16 +49,9 @@ REFRESH_TOKEN_EXPIRY_TIME = int(os.getenv("REFRESH_TOKEN_EXPIRY_TIME"))
 NEON_DATABASE_URL = os.getenv("NEON_DATABASE_URL")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
-REDIS_HOST = os.getenv("REDIS_HOST")
-REDIS_PASSWORD = os.getenv("REDIS_PASSWORD")
-REDIS_PORT = int(os.getenv("REDIS_PORT"))
 
-REDIS_CLIENT = redis.Redis(
-    host=REDIS_HOST,
-    port=REDIS_PORT,
-    decode_responses=True,
-    username="default",
-    password=REDIS_PASSWORD,
+REDIS_CLIENT = Redis(
+    url=os.getenv("UPSTASH_REDIS_URL"), token=os.getenv("UPSTASH_REDIS_TOKEN")
 )
 
 FRONTEND_URL = os.getenv("FRONTEND_URL")
@@ -67,9 +61,7 @@ BREVO_SENDER_EMAIL = os.getenv("BREVO_SENDER_EMAIL")
 BREVO_SENDER_NAME = os.getenv("BREVO_SENDER_NAME")
 
 
-async def send_otp_email(recipient_email: str, otp: str):
-    print("BREVO API KEY PREFIX:", BREVO_API_KEY[:10] if BREVO_API_KEY else None)
-    print("BREVO SENDER:", BREVO_SENDER_EMAIL)
+async def send_otp_email(recipient_email: str, otp: str, context: str):
 
     url = "https://api.brevo.com/v3/smtp/email"
 
@@ -82,7 +74,7 @@ async def send_otp_email(recipient_email: str, otp: str):
     data = {
         "sender": {"name": BREVO_SENDER_NAME, "email": BREVO_SENDER_EMAIL},
         "to": [{"email": recipient_email}],
-        "subject": f"{otp} is Your HireLense.ai OTP",
+        "subject": f"{otp} is your {context}",
         "htmlContent": f"""
         <html>
             <body>
@@ -94,8 +86,8 @@ async def send_otp_email(recipient_email: str, otp: str):
 
                 <p>This OTP will expire in 5 minutes.</p>
 
-                <p>If you did not request this OTP,
-                you can safely ignore this email.</p>
+                <small>If you did not request this OTP,
+                you can safely ignore this email.</small>
             </body>
         </html>
         """,
@@ -108,3 +100,60 @@ async def send_otp_email(recipient_email: str, otp: str):
         response.raise_for_status()
 
         return response.json()
+
+
+def set_auth_cookies(
+    response: Response,
+    access_token: str,
+    refresh_token: str,
+    request: Request = None,
+):
+    is_secure = (
+        IS_PRODUCTION
+        or (request is not None and request.url.scheme == "https")
+        or (request is not None and request.headers.get("x-forwarded-proto") == "https")
+    )
+    samesite = "none" if is_secure else "lax"
+
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        secure=is_secure,
+        max_age=60 * ACCESS_TOKEN_EXPIRY_TIME,
+        samesite=samesite,
+        path="/",
+    )
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        secure=is_secure,
+        max_age=60 * 60 * 24 * REFRESH_TOKEN_EXPIRY_TIME,
+        samesite=samesite,
+        path="/",
+    )
+
+
+def clear_auth_cookies(response: Response, request: Request = None):
+    is_secure = (
+        IS_PRODUCTION
+        or (request is not None and request.url.scheme == "https")
+        or (request is not None and request.headers.get("x-forwarded-proto") == "https")
+    )
+    samesite = "none" if is_secure else "lax"
+
+    response.delete_cookie(
+        key="access_token",
+        path="/",
+        secure=is_secure,
+        samesite=samesite,
+        httponly=True,
+    )
+    response.delete_cookie(
+        key="refresh_token",
+        path="/",
+        secure=is_secure,
+        samesite=samesite,
+        httponly=True,
+    )

@@ -21,7 +21,7 @@ slowapi
 python-dotenv
 
 # Cache / OTP
-redis
+upstash-redis
 httpx
  
 # Validation

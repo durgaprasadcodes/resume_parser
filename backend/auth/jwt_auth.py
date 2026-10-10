@@ -7,7 +7,14 @@ from models.model import Users, RefreshToken
 from fastapi.responses import JSONResponse
 from fastapi import APIRouter, Depends, BackgroundTasks
 from fastapi import Depends, Request, HTTPException, status, Response
-from schemas.schema import RegistrationSchema, LoginSchema, OTPVerificationSchema
+from schemas.schema import (
+    RegistrationSchema,
+    LoginSchema,
+    OTPVerificationSchema,
+    RefreshTokenRequest,
+    ForgotPasswordRequest,
+    VerifyResetOTPRequest,
+)
 from config import (
     hash_password,
     verify_password,
@@ -23,78 +30,11 @@ from config import (
     FRONTEND_URL,
     IS_PRODUCTION,
     OTP_EXPIRY_SECONDS,
+    set_auth_cookies,
+    clear_auth_cookies,
 )
 
-from pydantic import BaseModel
 from tokens.jwt_token import create_access_token, create_refresh_token
-
-
-class RefreshTokenRequest(BaseModel):
-    refresh_token: str | None = None
-
-
-def set_auth_cookies(
-    response: Response,
-    access_token: str,
-    refresh_token: str,
-    request: Request = None,
-):
-    is_secure = (
-        IS_PRODUCTION
-        or (request is not None and request.url.scheme == "https")
-        or (
-            request is not None
-            and request.headers.get("x-forwarded-proto") == "https"
-        )
-    )
-    samesite = "none" if is_secure else "lax"
-
-    response.set_cookie(
-        key="access_token",
-        value=access_token,
-        httponly=True,
-        secure=is_secure,
-        max_age=60 * ACCESS_TOKEN_EXPIRY_TIME,
-        samesite=samesite,
-        path="/",
-    )
-    response.set_cookie(
-        key="refresh_token",
-        value=refresh_token,
-        httponly=True,
-        secure=is_secure,
-        max_age=60 * 60 * 24 * REFRESH_TOKEN_EXPIRY_TIME,
-        samesite=samesite,
-        path="/",
-    )
-
-
-def clear_auth_cookies(response: Response, request: Request = None):
-    is_secure = (
-        IS_PRODUCTION
-        or (request is not None and request.url.scheme == "https")
-        or (
-            request is not None
-            and request.headers.get("x-forwarded-proto") == "https"
-        )
-    )
-    samesite = "none" if is_secure else "lax"
-
-    response.delete_cookie(
-        key="access_token",
-        path="/",
-        secure=is_secure,
-        samesite=samesite,
-        httponly=True,
-    )
-    response.delete_cookie(
-        key="refresh_token",
-        path="/",
-        secure=is_secure,
-        samesite=samesite,
-        httponly=True,
-    )
-
 
 router = APIRouter(tags=["Hirelense.ai Authentication Setup"], prefix="/auth")
 
@@ -130,16 +70,7 @@ async def register(
         ex=OTP_EXPIRY_SECONDS,
     )
 
-    # Reset attempt counter on new OTP generation
-    REDIS_CLIENT.delete(f"OTP_ATTEMPTS_{user.email}")
-
-    backgroundtasks.add_task(send_otp_email, user.email, otp)
-
-    print("========== REGISTER DEBUG ==========", flush=True)
-    print("OTP KEY:", otp_key, flush=True)
-    print("OTP EXISTS:", REDIS_CLIENT.exists(otp_key), flush=True)
-    print("OTP TTL:", REDIS_CLIENT.ttl(otp_key), flush=True)
-    print("====================================", flush=True)
+    backgroundtasks.add_task(send_otp_email, user.email, otp, "email verification code")
 
     return {"message": "OTP sent successfully", "email": user.email}
 
@@ -176,7 +107,7 @@ async def login(
         expires_at=datetime.now(timezone.utc)
         + timedelta(days=REFRESH_TOKEN_EXPIRY_TIME),
         revoked=False,
-        revoked_by_id=None
+        revoked_by_id=None,
     )
 
     db.add(refresh_token_record)
@@ -349,7 +280,11 @@ async def refresh_token_rotation(
         )
 
     # 4. Check expiration safely
-    now = datetime.now(timezone.utc) if refresh_token_record.expires_at.tzinfo else datetime.utcnow()
+    now = (
+        datetime.now(timezone.utc)
+        if refresh_token_record.expires_at.tzinfo
+        else datetime.utcnow()
+    )
     if refresh_token_record.expires_at < now:
         refresh_token_record.revoked_at = datetime.utcnow()
         db.commit()
@@ -359,11 +294,7 @@ async def refresh_token_rotation(
         )
 
     # 5. Get user
-    user = (
-        db.query(Users)
-        .filter(Users.id == refresh_token_record.user_id)
-        .first()
-    )
+    user = db.query(Users).filter(Users.id == refresh_token_record.user_id).first()
 
     if not user:
         raise HTTPException(
@@ -386,7 +317,7 @@ async def refresh_token_rotation(
         user_id=user.id,
         expires_at=refresh_token_record.expires_at,
         revoked_by_id=refresh_token_record.id,
-        created_at=datetime.utcnow()
+        created_at=datetime.utcnow(),
     )
 
     db.add(new_refresh_token_record)
@@ -445,3 +376,55 @@ async def test_brevo():
     )
 
     return {"message": "Email sent successfully", "brevo": result}
+
+
+@router.post("/reset-password")
+@limiter.limit("5/minutes")
+async def resetPassword(
+    request: Request,
+    data: ForgotPasswordRequest,
+    backgroundtasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
+    user = db.query(Users).filter(Users.email == data.email).first()
+
+    if user:
+
+        otp = generate_otp()
+        key = f"Hirelense-ai-forget-password-otp-key:{user.email}"
+        REDIS_CLIENT.set(key, otp, ex=300)
+        backgroundtasks.add_task(
+            send_otp_email, user.email, otp, "password verification code"
+        )
+
+    return {
+        "message": f"If an account exists with this email, an OTP has been sent email."
+    }
+
+
+@router.post("/reset-otp")
+async def verifyResetOTP(request: Request, data: VerifyResetOTPRequest, backgroundtasks: BackgroundTasks, db: Session = Depends(get_db)):
+    email = data.email
+    key = f"Hirelense-ai-forget-password-otp-key:{email}"
+
+    otp = REDIS_CLIENT.get(key)
+
+    if not otp:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="OTP has expired. Please request a new OTP.",
+        )
+
+    if otp != data.otp:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid OTP.",
+        )
+
+    # Delete OTP after successful verification
+    REDIS_CLIENT.delete(key)
+
+    return {
+        "message": "OTP verified successfully. You can now reset your password.",
+    }
+

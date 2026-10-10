@@ -38,3 +38,16 @@ class LoginSchema(BaseModel):
 class OTPVerificationSchema(BaseModel):
     email: EmailStr
     otp: str
+
+
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str | None = None
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class VerifyResetOTPRequest(BaseModel):
+    email: EmailStr
+    otp: str
