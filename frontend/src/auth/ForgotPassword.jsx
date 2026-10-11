@@ -9,6 +9,7 @@ export default function ForgotPassword() {
     const [email, setEmail] = useState("");
     const [loading, setLoading] = useState(false);
     const [changePassword, setChangePassword] = useState(false);
+    const [resetToken, setResetToken] = useState("");
     const [showForgotPasswordPage, setShowForgotPasswordPage] = useState(true);
 
     const BackToLoginPage = () => {
@@ -51,12 +52,12 @@ export default function ForgotPassword() {
                 otp: e.target.otp.value
             });
             if (response.status == 200) {
+                setResetToken(response.data.reset_token);
                 setChangePassword(true);
 
             }
         } catch (error) {
             console.log(error.response);
-            window.alert("Service Unavailble")
         }
         finally {
             setLoading(false)
@@ -69,7 +70,8 @@ export default function ForgotPassword() {
         try {
             const response = await api.post("/auth/change-password", {
                 email: email,
-                password: e.target.password.value
+                password: e.target.password.value,
+                reset_token: resetToken
             });
             if (response.status == 200) {
                 navigate("/login");

@@ -56,6 +56,7 @@ class VerifyResetOTPRequest(BaseModel):
 class ChangePasswordRequest(BaseModel):
     email: EmailStr
     password: str
+    reset_token: str
 
     @field_validator("password")
     @classmethod

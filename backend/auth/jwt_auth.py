@@ -19,9 +19,10 @@ from schemas.schema import (
 from config import (
     hash_password,
     verify_password,
+    hash_refresh_token,
+    create_reset_token,
     ACCESS_TOKEN_EXPIRY_TIME,
     REFRESH_TOKEN_EXPIRY_TIME,
-    hash_refresh_token,
 )
 from config import (
     limiter,
@@ -274,7 +275,7 @@ async def refresh_token_rotation(
         .first()
     )
 
-    if not refresh_token_record or refresh_token_record.revoked_at is not None:
+    if not refresh_token_record or refresh_token_record.revoked is not None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Refresh token is invalid or revoked.",
@@ -287,7 +288,7 @@ async def refresh_token_rotation(
         else datetime.utcnow()
     )
     if refresh_token_record.expires_at < now:
-        refresh_token_record.revoked_at = datetime.utcnow()
+        refresh_token_record.revoked = datetime.utcnow()
         db.commit()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -310,7 +311,7 @@ async def refresh_token_rotation(
     new_refresh_token, hashed_new_refresh_token = create_refresh_token()
 
     # 8. Revoke old refresh token
-    refresh_token_record.revoked_at = datetime.utcnow()
+    refresh_token_record.revoked = datetime.utcnow()
 
     # 9. Create new refresh token record
     new_refresh_token_record = RefreshToken(
@@ -361,8 +362,8 @@ async def logout(
             .filter(RefreshToken.refresh_token == hashed_token)
             .first()
         )
-        if record and not record.revoked_at:
-            record.revoked_at = datetime.utcnow()
+        if record and not record.revoked:
+            record.revoked = datetime.utcnow()
             db.commit()
 
     clear_auth_cookies(response, request)
@@ -422,10 +423,60 @@ async def verifyResetOTP(request: Request, data: VerifyResetOTPRequest, backgrou
             detail="Invalid OTP.",
         )
 
+    # Generating Temporary Reset Token
+    reset_token = create_reset_token()
+    REDIS_CLIENT.set(f"Hirelense-ai-forget-password-reset-token-key:{email}", reset_token, ex=300)
+    
     # Delete OTP after successful verification
     REDIS_CLIENT.delete(key)
 
     return {
         "message": "OTP verified successfully. You can now reset your password.",
+        "reset_token": reset_token
     }
 
+
+@router.post("/change-password")
+@limiter.limit("5/minutes")
+async def changePassword(
+    request: Request,
+    data: ChangePasswordRequest,
+    backgroundtasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
+    email = data.email
+    reset_token = data.reset_token
+    password = data.password
+
+    key = f"Hirelense-ai-forget-password-reset-token-key:{email}"
+    stored_reset_token = REDIS_CLIENT.get(key)
+
+    if not stored_reset_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Reset token has expired. Please request a new OTP.",
+        )
+
+    if stored_reset_token != reset_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid reset token.",
+        )
+
+    user = db.query(Users).filter(Users.email == email).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found.",
+        )
+
+    user.password = hash_password(password)
+    user.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(user)
+    
+    # Delete reset token after successful verification
+    REDIS_CLIENT.delete(key)
+    backgroundtasks.add_task(send_otp_email, user.email, "Password changed successfully.")
+    
+    return {"message": "Password changed successfully."}

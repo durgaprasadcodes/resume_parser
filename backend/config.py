@@ -36,6 +36,8 @@ def generate_otp() -> str:
 def hash_refresh_token(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
+def create_reset_token():
+    return secrets.token_urlsafe(32)
 
 OTP_EXPIRY_SECONDS = 300
 IS_PRODUCTION = os.getenv("ENV") == "production" or os.getenv("RENDER") is not None
@@ -71,7 +73,26 @@ async def send_otp_email(recipient_email: str, otp: str, context: str):
         "content-type": "application/json",
     }
 
-    data = {
+
+    if context == "Password changed successfully.":
+        data = {
+            "sender": {"name": BREVO_SENDER_NAME, "email": BREVO_SENDER_EMAIL},
+            "to": [{"email": recipient_email}],
+            "subject": f"{context}",
+            "htmlContent" : f"""
+            <html>
+            <body>
+                <h2>HireLense.ai Password Changed</h2>
+
+                <p>Your password has been changed successfully.</p>
+
+                <small>Thank's for using HireLense.ai</small>
+            </body>
+        </html>
+        """
+        }
+    else:
+        data = {
         "sender": {"name": BREVO_SENDER_NAME, "email": BREVO_SENDER_EMAIL},
         "to": [{"email": recipient_email}],
         "subject": f"{otp} is your {context}",
@@ -92,6 +113,7 @@ async def send_otp_email(recipient_email: str, otp: str, context: str):
         </html>
         """,
     }
+
 
     async with httpx.AsyncClient() as client:
 
