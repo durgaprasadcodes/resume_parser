@@ -1,8 +1,10 @@
 from fastapi import FastAPI, BackgroundTasks
 from auth.jwt_auth import router
+from auth.google_auth import google_router
 from pydantic import EmailStr
 from fastapi.middleware.cors import CORSMiddleware
-from config import limiter, FRONTEND_URL
+from config import limiter, FRONTEND_URL, GOOGLE_SESSION_SECRET
+from starlette.middleware.sessions import SessionMiddleware
 
 app = FastAPI(
     title="Hirelense.ai API",
@@ -25,6 +27,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.add_middleware(SessionMiddleware, secret_key=GOOGLE_SESSION_SECRET)
+
 
 @app.get("/")
 async def root():
@@ -34,3 +38,5 @@ async def root():
 app.state.limiter = limiter
 
 app.include_router(router)
+
+app.include_router(google_router)

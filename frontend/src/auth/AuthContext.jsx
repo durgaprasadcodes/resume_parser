@@ -62,7 +62,7 @@ export function AuthProvider({ children }) {
 
     const isauthenticated = !!user;
 
-    const login = (userData, tokens = {}) => {
+    const login = useCallback((userData, tokens = {}) => {
         if (tokens.access_token) {
             localStorage.setItem("access_token", tokens.access_token);
         }
@@ -73,7 +73,42 @@ export function AuthProvider({ children }) {
             localStorage.setItem("user", JSON.stringify(userData));
             setUser(userData);
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        // Handle redirect callback from Google OAuth
+        const params = new URLSearchParams(window.location.search);
+        if (params.get("google_auth") === "success") {
+            const userData = {
+                id: params.get("id"),
+                name: params.get("name"),
+                email: params.get("email"),
+                picture: params.get("picture") || null,
+                is_verified: true,
+            };
+            const access_token = params.get("access_token");
+            const refresh_token = params.get("refresh_token");
+
+            login(userData, { access_token, refresh_token });
+
+            // Clean query parameters from URL without reload
+            const cleanUrl = window.location.pathname;
+            window.history.replaceState({}, document.title, cleanUrl);
+        }
+    }, [login]);
+
+    useEffect(() => {
+        // Handle popup postMessage from Google OAuth
+        const handleMessage = (event) => {
+            if (event.data?.type === "GOOGLE_AUTH_SUCCESS") {
+                const { user: userData, tokens } = event.data;
+                login(userData, tokens || {});
+            }
+        };
+
+        window.addEventListener("message", handleMessage);
+        return () => window.removeEventListener("message", handleMessage);
+    }, [login]);
 
     const logout = async () => {
         try {

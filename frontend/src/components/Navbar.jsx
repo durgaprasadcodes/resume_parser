@@ -122,21 +122,55 @@ function Navbar() {
                                     <img
                                         src={user.picture}
                                         alt={user.name || "Profile"}
+                                        onError={(e) => {
+                                            e.currentTarget.style.display = 'none';
+                                            if (e.currentTarget.nextElementSibling) {
+                                                e.currentTarget.nextElementSibling.style.display = 'flex';
+                                            }
+                                        }}
                                     />
-                                ) : (
+                                ) : null}
+                                <div
+                                    className="nav-profile-icon-wrapper"
+                                    style={{ display: user?.picture ? 'none' : 'flex' }}
+                                >
                                     <UserIcon />
-                                )}
+                                </div>
                             </button>
 
                             {dropdownOpen && (
                                 <div className="profile-dropdown">
 
                                     <div className="dropdown-user-info">
-                                        <div className="user-name">
-                                            {user?.name || "User"}
-                                        </div>
-                                        <div className="user-email">
-                                            {user?.email || ""}
+                                        <div className="dropdown-user-header">
+                                            <div className="dropdown-avatar">
+                                                {user?.picture ? (
+                                                    <img
+                                                        src={user.picture}
+                                                        alt={user.name || "Profile"}
+                                                        onError={(e) => {
+                                                            e.currentTarget.style.display = 'none';
+                                                            if (e.currentTarget.nextElementSibling) {
+                                                                e.currentTarget.nextElementSibling.style.display = 'flex';
+                                                            }
+                                                        }}
+                                                    />
+                                                ) : null}
+                                                <div
+                                                    className="dropdown-avatar-fallback"
+                                                    style={{ display: user?.picture ? 'none' : 'flex' }}
+                                                >
+                                                    <UserIcon />
+                                                </div>
+                                            </div>
+                                            <div className="dropdown-user-text">
+                                                <div className="user-name">
+                                                    {user?.name || "User"}
+                                                </div>
+                                                <div className="user-email">
+                                                    {user?.email || ""}
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
 
