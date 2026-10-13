@@ -1,5 +1,6 @@
 import { Navigate, Outlet } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import { DotLottieReact } from '@lottiefiles/dotlottie-react'
 
 
 export function ProtectedRoute({ children }) {
@@ -11,8 +12,11 @@ export function ProtectedRoute({ children }) {
 
         return (
             <div className="loading-overlay">
-                <div className="spinner" />
-                <span>Checking authentication...</span>
+                <DotLottieReact
+                    src="https://lottie.host/fab0564c-b9fa-4f0f-b243-955fdc0ea24b/CGBHZLKVks.lottie"
+                    loop
+                    autoplay
+                />
             </div>
         );
 
@@ -44,8 +48,11 @@ export function PublicOnlyRoute({ children }) {
 
         return (
             <div className="loading-overlay">
-                <div className="spinner" />
-                <span>Checking authentication...</span>
+                <DotLottieReact
+                    src="https://lottie.host/fab0564c-b9fa-4f0f-b243-955fdc0ea24b/CGBHZLKVks.lottie"
+                    loop
+                    autoplay
+                />
             </div>
         );
 
@@ -56,7 +63,7 @@ export function PublicOnlyRoute({ children }) {
 
         return (
             <Navigate
-                to="/profile"
+                to="/"
                 replace
             />
         );

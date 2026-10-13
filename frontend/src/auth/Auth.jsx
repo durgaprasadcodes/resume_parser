@@ -47,7 +47,7 @@ function Login() {
             if (response.status === 200) {
                 const { access_token, refresh_token, user: userData } = response.data;
                 login(userData || { email: formData.email }, { access_token, refresh_token });
-                navigate("/profile", {
+                navigate("/", {
                     replace: true
                 });
             }
