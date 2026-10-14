@@ -1,0 +1,694 @@
+/* ======================================================================
+   ai-chat-input.css  — plain CSS for the PromptInput component
+   No Tailwind needed. Colors follow the OS light/dark setting.
+   To change the look, edit the variables in the first two blocks.
+   ====================================================================== */
+
+.pi-wrap,
+.pi-modal {
+    --pi-card: #ffffff;
+    --pi-muted: #f4f4f5;
+    --pi-border: #e4e4e7;
+    --pi-fg: #18181b;
+    --pi-fg-50: rgba(24, 24, 27, 0.5);
+    --pi-fg-70: rgba(24, 24, 27, 0.7);
+    --pi-fg-80: rgba(24, 24, 27, 0.8);
+    --pi-placeholder: rgba(113, 113, 122, 0.8);
+    --pi-accent: #ececee;
+    --pi-accent-60: rgba(236, 236, 238, 0.7);
+    --pi-primary: #18181b;
+    --pi-primary-fg: #fafafa;
+    --pi-ring: #a1a1aa;
+    --pi-ring-soft: rgba(161, 161, 170, 0.25);
+    --pi-backdrop: rgba(255, 255, 255, 0.7);
+    --pi-card-95: rgba(255, 255, 255, 0.95);
+    --pi-overlay-btn: rgba(255, 255, 255, 0.9);
+    --pi-ease: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@media (prefers-color-scheme: dark) {
+
+    .pi-wrap,
+    .pi-modal {
+        --pi-card: #1c1c1f;
+        --pi-muted: #27272a;
+        --pi-border: #3f3f46;
+        --pi-fg: #fafafa;
+        --pi-fg-50: rgba(250, 250, 250, 0.5);
+        --pi-fg-70: rgba(250, 250, 250, 0.7);
+        --pi-fg-80: rgba(250, 250, 250, 0.8);
+        --pi-placeholder: rgba(161, 161, 170, 0.8);
+        --pi-accent: #3f3f46;
+        --pi-accent-60: rgba(63, 63, 70, 0.7);
+        --pi-primary: #fafafa;
+        --pi-primary-fg: #18181b;
+        --pi-ring: #71717a;
+        --pi-ring-soft: rgba(113, 113, 122, 0.3);
+        --pi-backdrop: rgba(0, 0, 0, 0.7);
+        --pi-card-95: rgba(28, 28, 31, 0.95);
+        --pi-overlay-btn: rgba(28, 28, 31, 0.9);
+    }
+}
+
+.pi-wrap *,
+.pi-wrap *::before,
+.pi-wrap *::after,
+.pi-modal *,
+.pi-modal *::before,
+.pi-modal *::after {
+    box-sizing: border-box;
+}
+
+.pi-wrap button,
+.pi-wrap textarea,
+.pi-modal button {
+    font-family: inherit;
+}
+
+/* ---------- Keyframes ---------- */
+@keyframes pi-zoom-fade {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@keyframes pi-thumb-in {
+    from {
+        opacity: 0;
+        transform: translateY(-12px) scale(0.9);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* ---------- Outer wrapper ---------- */
+.pi-wrap {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
+.pi-file-input {
+    display: none;
+}
+
+/* ---------- Morphing text ---------- */
+.pi-morph {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    transition: all 0.3s var(--pi-ease);
+}
+
+.pi-morph-sizer {
+    visibility: hidden;
+    white-space: nowrap;
+    padding: 0 4px;
+}
+
+.pi-morph-text {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+    animation: pi-zoom-fade 0.3s ease both;
+}
+
+/* ---------- Model icon ---------- */
+.pi-model-icon {
+    width: 14px;
+    height: 14px;
+    object-fit: contain;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+@media (prefers-color-scheme: dark) {
+    .pi-model-icon--invert {
+        filter: invert(1);
+    }
+}
+
+.pi-pill:hover .pi-model-icon,
+.pi-menu-item:hover .pi-model-icon {
+    opacity: 1;
+}
+
+.pi-menu-item .pi-model-icon {
+    opacity: 0.85;
+}
+
+/* ---------- Attachment tab ---------- */
+.pi-tab-clip {
+    position: relative;
+    z-index: 0;
+    width: 100%;
+    overflow: hidden;
+}
+
+.pi-tab {
+    position: absolute;
+    bottom: -8px;
+    left: 20px;
+    right: 20px;
+    height: 68px;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 8px 8px 4px;
+    overflow-x: auto;
+    border: 1px solid var(--pi-border);
+    border-bottom: 0;
+    border-radius: 16px 16px 0 0;
+    background: var(--pi-muted);
+}
+
+/* ---------- Thumbnails ---------- */
+.pi-thumb {
+    position: relative;
+    flex-shrink: 0;
+    width: 48px;
+    height: 48px;
+    padding: 0;
+    overflow: hidden;
+    border: 1px solid var(--pi-border);
+    border-radius: 12px;
+    background: var(--pi-muted);
+    outline: none;
+    cursor: pointer;
+    animation: pi-thumb-in 0.4s ease;
+    transition: transform 0.2s var(--pi-ease);
+}
+
+.pi-thumb:hover {
+    transform: scale(1.04);
+}
+
+.pi-thumb:active {
+    transform: scale(0.96);
+}
+
+.pi-thumb-img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.pi-thumb-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-end;
+    background: rgba(0, 0, 0, 0);
+    transition: background 0.2s;
+}
+
+.pi-thumb-overlay.is-hovered {
+    background: rgba(0, 0, 0, 0.25);
+}
+
+.pi-thumb-remove {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    margin: 4px;
+    border-radius: 9999px;
+    background: var(--pi-overlay-btn);
+    color: var(--pi-fg-70);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+    opacity: 0;
+    transform: scale(0.5);
+    pointer-events: none;
+    transition: all 0.2s var(--pi-ease);
+}
+
+.pi-thumb-remove.is-visible {
+    opacity: 1;
+    transform: scale(1);
+    pointer-events: auto;
+}
+
+.pi-thumb-remove.is-visible:hover {
+    color: var(--pi-fg);
+    transform: scale(1.1);
+}
+
+/* ---------- Main card ---------- */
+.pi-card {
+    position: relative;
+    z-index: 10;
+    width: 100%;
+    border: 1px solid var(--pi-border);
+    border-radius: 24px;
+    background: var(--pi-card);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    cursor: default;
+}
+
+.pi-card.is-expanded {
+    cursor: text;
+}
+
+.pi-card:focus-within {
+    border-color: var(--pi-ring);
+    box-shadow: 0 0 0 1px var(--pi-ring-soft);
+}
+
+/* ---------- Textarea ---------- */
+.pi-textarea {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1;
+    width: 100%;
+    margin: 0;
+    padding: 14px 48px 14px 16px;
+    border: none;
+    background: transparent;
+    color: var(--pi-fg);
+    font-size: 14px;
+    line-height: 22px;
+    resize: none;
+    outline: none;
+    cursor: text;
+    overflow-y: hidden;
+}
+
+.pi-textarea::placeholder {
+    font-weight: 500;
+    color: var(--pi-placeholder);
+}
+
+.pi-textarea.is-scrolling {
+    overflow-y: auto;
+}
+
+.pi-textarea.is-collapsed {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.95);
+    pointer-events: none;
+}
+
+.pi-textarea.is-recording {
+    pointer-events: none;
+}
+
+/* Thin scrollbar that only shows on hover */
+.pi-scrollbar::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+    background: transparent;
+}
+
+.pi-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.pi-scrollbar::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 4px;
+}
+
+.pi-scrollbar:hover::-webkit-scrollbar-thumb {
+    background: rgba(113, 113, 122, 0.35);
+}
+
+/* ---------- Scroll fades ---------- */
+.pi-fade {
+    position: absolute;
+    left: 16px;
+    right: 48px;
+    z-index: 2;
+    height: 32px;
+    pointer-events: none;
+}
+
+.pi-fade--top {
+    top: 0;
+    background: linear-gradient(to bottom, var(--pi-card) 0%, transparent 100%);
+}
+
+.pi-fade--bottom {
+    background: linear-gradient(to top, var(--pi-card) 0%, transparent 100%);
+}
+
+/* ---------- Collapsed placeholder button ---------- */
+.pi-placeholder {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1;
+    padding: 15px 48px 15px 16px;
+    border: none;
+    background: none;
+    color: var(--pi-placeholder);
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 17px;
+    text-align: left;
+    outline: none;
+    cursor: text;
+    opacity: 1;
+    transform: none;
+}
+
+.pi-placeholder.is-hidden {
+    opacity: 0;
+    transform: translateY(4px) scale(1.05);
+    pointer-events: none;
+}
+
+/* ---------- Bottom action row ---------- */
+.pi-actions {
+    position: absolute;
+    bottom: 8px;
+    left: 12px;
+    right: 48px;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    opacity: 1;
+    filter: blur(0);
+    transform: none;
+    transition: all 0.3s var(--pi-ease);
+}
+
+.pi-actions.is-hidden {
+    opacity: 0;
+    filter: blur(4px);
+    transform: translateY(8px);
+    pointer-events: none;
+}
+
+.pi-pill {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    border: none;
+    border-radius: 9999px;
+    background: transparent;
+    color: var(--pi-fg-50);
+    outline: none;
+    cursor: default;
+    transition: all 0.2s;
+}
+
+.pi-pill:hover,
+.pi-pill.is-open {
+    background: var(--pi-accent-60);
+    color: var(--pi-fg);
+}
+
+.pi-pill-label {
+    font-size: 12px;
+    font-weight: 600;
+    user-select: none;
+}
+
+.pi-model-wrap {
+    position: relative;
+}
+
+/* ---------- Model dropdown ---------- */
+.pi-menu {
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    width: 176px;
+    margin-bottom: 10px;
+    padding: 4px;
+    border: 1px solid var(--pi-border);
+    border-radius: 16px;
+    background: var(--pi-card-95);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.12), 0 8px 10px -6px rgba(0, 0, 0, 0.12);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+    cursor: default;
+    opacity: 0;
+    transform: translateY(12px) scale(0.95);
+    pointer-events: none;
+    transition: all 0.4s var(--pi-ease);
+}
+
+.pi-menu.is-open {
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+    transition-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.pi-menu-list {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.pi-menu-hover {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: -1;
+    height: 32px;
+    border-radius: 12px;
+    background: var(--pi-accent);
+    pointer-events: none;
+}
+
+.pi-menu-item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    height: 32px;
+    padding: 6px 10px;
+    border: none;
+    border-radius: 12px;
+    background: none;
+    color: var(--pi-fg-80);
+    font-size: 12px;
+    font-weight: 500;
+    text-align: left;
+    outline: none;
+    cursor: default;
+}
+
+.pi-menu-item:active {
+    transform: scale(0.98);
+}
+
+.pi-menu-item-inner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* ---------- Attach button ---------- */
+.pi-plus {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    margin-left: auto;
+    padding: 0;
+    border: none;
+    border-radius: 9999px;
+    background: transparent;
+    color: var(--pi-fg-50);
+    outline: none;
+    cursor: default;
+    transition: all 0.2s;
+}
+
+.pi-plus:hover {
+    background: var(--pi-accent-60);
+    color: var(--pi-fg);
+}
+
+.pi-plus:disabled {
+    opacity: 0.4;
+    pointer-events: none;
+}
+
+/* ---------- Voice wave visualizer ---------- */
+.pi-wave {
+    position: absolute;
+    right: 48px;
+    bottom: 8px;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 3px;
+    width: 0;
+    height: 32px;
+    overflow: hidden;
+    opacity: 0;
+    transform: translateX(16px);
+    pointer-events: none;
+    transition: all 0.4s var(--pi-ease);
+}
+
+.pi-wave.is-active {
+    width: 64px;
+    opacity: 1;
+    transform: none;
+}
+
+.pi-wave-bar {
+    width: 4px;
+    border-radius: 9999px;
+    background: var(--pi-primary);
+    transition: height 0.075s ease-out;
+}
+
+/* ---------- Send / mic / stop button ---------- */
+.pi-action {
+    position: absolute;
+    right: 8px;
+    bottom: 8px;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: none;
+    border-radius: 9999px;
+    background: var(--pi-primary);
+    color: var(--pi-primary-fg);
+    outline: none;
+    cursor: default;
+    transition: all 0.3s;
+}
+
+.pi-action:hover {
+    opacity: 0.9;
+}
+
+.pi-action:focus-visible {
+    box-shadow: 0 0 0 2px var(--pi-ring);
+}
+
+.pi-action-inner {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+}
+
+.pi-action-icon {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transform: scale(0.5) rotate(45deg);
+    filter: blur(1px);
+    pointer-events: none;
+    transition: all 0.3s var(--pi-ease);
+}
+
+.pi-action-icon--mic {
+    transform: scale(0.5) rotate(-45deg);
+}
+
+.pi-action-icon.is-active {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+    filter: none;
+}
+
+/* ---------- Image preview modal ---------- */
+.pi-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+}
+
+.pi-modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: var(--pi-backdrop);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+    transition: opacity 0.4s;
+}
+
+.pi-modal-frame {
+    background: var(--pi-muted);
+}
+
+.pi-modal-img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.pi-modal-close {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border: none;
+    border-radius: 9999px;
+    background: var(--pi-overlay-btn);
+    color: var(--pi-fg-70);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.15);
+    -webkit-backdrop-filter: blur(4px);
+    backdrop-filter: blur(4px);
+    cursor: pointer;
+    transition: all 0.3s var(--pi-ease);
+}
+
+.pi-modal-close:hover {
+    background: var(--pi-card);
+    color: var(--pi-fg);
+}
+
+.pi-modal-close.is-hidden {
+    pointer-events: none;
+}
+
+.pi-modal-close-icon {
+    display: inline-flex;
+    transform: scale(1.5);
+}
