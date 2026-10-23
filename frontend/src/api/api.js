@@ -2,7 +2,7 @@ import axios from 'axios';
 
 const api = axios.create({
     baseURL: import.meta.env.VITE_API_URL,
-    withCredentials: true
+    withCredentials: true  // required to send the httpOnly refresh_token cookie
 });
 
 /* Request Interceptor: Attach Bearer token from localStorage if available */
@@ -20,7 +20,9 @@ api.interceptors.request.use(
 /*
  * Response Interceptor:
  * On 401, attempt silent token refresh via /auth/refresh.
- * If refresh succeeds, retry the original request.
+ * The refresh_token is sent automatically as an httpOnly cookie.
+ * If refresh succeeds, the new access_token is stored in localStorage
+ * and the original request is retried.
  * If refresh also fails, clear credentials and reject.
  */
 let isRefreshing = false;
@@ -69,14 +71,11 @@ api.interceptors.response.use(
             originalRequest._retry = true;
             isRefreshing = true;
 
-            const currentRefreshToken = localStorage.getItem('refresh_token');
-
             try {
-                const response = await api.post('/auth/refresh', {
-                    refresh_token: currentRefreshToken
-                });
+                // Refresh token is in the httpOnly cookie — no body needed
+                const response = await api.post('/auth/refresh');
 
-                const { access_token, refresh_token: newRefreshToken } = response.data;
+                const { access_token, user: userData } = response.data;
 
                 if (access_token) {
                     localStorage.setItem('access_token', access_token);
@@ -84,8 +83,9 @@ api.interceptors.response.use(
                     originalRequest.headers.Authorization = `Bearer ${access_token}`;
                 }
 
-                if (newRefreshToken) {
-                    localStorage.setItem('refresh_token', newRefreshToken);
+                // Update stored user data if provided
+                if (userData) {
+                    localStorage.setItem('user', JSON.stringify(userData));
                 }
 
                 processQueue(null, access_token);
@@ -94,7 +94,6 @@ api.interceptors.response.use(
                 processQueue(refreshError, null);
                 // Clean up invalid session from browser storage
                 localStorage.removeItem('access_token');
-                localStorage.removeItem('refresh_token');
                 localStorage.removeItem('user');
                 return Promise.reject(refreshError);
             } finally {

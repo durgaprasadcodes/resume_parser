@@ -28,33 +28,94 @@ export function AuthProvider({ children }) {
 
     const [loading, setLoading] = useState(true);
 
-    const checkAuth = useCallback(async () => {
-        const token = localStorage.getItem("access_token");
+    /**
+     * Handle OAuth callback from Google.
+     * After Google redirects back, the URL hash contains:
+     *   /#oauth-callback?access_token=...&name=...&email=...&picture=...
+     * We parse this, store in localStorage, then clean up the URL.
+     */
+    const handleOAuthCallback = useCallback(() => {
+        const hash = window.location.hash;
+        if (!hash.startsWith("#oauth-callback?")) return false;
 
-        // If no token stored and no user cached, finish loading
-        if (!token && !localStorage.getItem("user")) {
+        const queryStr = hash.slice("#oauth-callback?".length);
+        const params = new URLSearchParams(queryStr);
+
+        const access_token = params.get("access_token");
+        const name = params.get("name");
+        const email = params.get("email");
+        const picture = params.get("picture");
+
+        if (!access_token) return false;
+
+        const userData = { name, email, picture };
+
+        localStorage.setItem("access_token", access_token);
+        localStorage.setItem("user", JSON.stringify(userData));
+        setUser(userData);
+
+        // Navigate to home, replacing history so the OAuth URL can't be revisited
+        window.location.replace(window.location.origin + "/");
+
+        return true;
+    }, []);
+
+    const checkAuth = useCallback(async () => {
+        // If the URL contains OAuth callback data, process it first
+        if (handleOAuthCallback()) {
             setLoading(false);
             return;
         }
 
-        try {
-            const response = await api.get("/auth/me");
+        const storedToken = localStorage.getItem("access_token");
+        const storedUser = localStorage.getItem("user");
 
+        // If we already have both token and user data, we're good
+        if (storedToken && storedUser) {
+            setLoading(false);
+            return;
+        }
+
+        // If we have a token but no user data, fetch /auth/me
+        if (storedToken) {
+            try {
+                const response = await api.get("/auth/me");
+                if (response.status === 200) {
+                    setUser(response.data);
+                    localStorage.setItem("user", JSON.stringify(response.data));
+                }
+            } catch (error) {
+                if (error.response?.status === 401) {
+                    localStorage.removeItem("access_token");
+                    localStorage.removeItem("user");
+                    setUser(null);
+                }
+            } finally {
+                setLoading(false);
+            }
+            return;
+        }
+
+        // No token — try a silent refresh via httpOnly cookie
+        try {
+            const response = await api.post("/auth/refresh");
             if (response.status === 200) {
-                setUser(response.data);
-                localStorage.setItem("user", JSON.stringify(response.data));
+                const { access_token, user: userData } = response.data;
+                if (access_token) {
+                    localStorage.setItem("access_token", access_token);
+                }
+                if (userData) {
+                    localStorage.setItem("user", JSON.stringify(userData));
+                    setUser(userData);
+                }
             }
-        } catch (error) {
-            if (error.response?.status === 401) {
-                localStorage.removeItem("access_token");
-                localStorage.removeItem("refresh_token");
-                localStorage.removeItem("user");
-                setUser(null);
-            }
+        } catch {
+            // No valid refresh token either — user is logged out
+            setUser(null);
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [handleOAuthCallback]);
 
     useEffect(() => {
         checkAuth();
@@ -62,12 +123,13 @@ export function AuthProvider({ children }) {
 
     const isauthenticated = !!user;
 
+    /**
+     * Called after a successful login/register/OTP-verify.
+     * Stores the access_token and user data in localStorage.
+     */
     const login = useCallback((userData, tokens = {}) => {
         if (tokens.access_token) {
             localStorage.setItem("access_token", tokens.access_token);
-        }
-        if (tokens.refresh_token) {
-            localStorage.setItem("refresh_token", tokens.refresh_token);
         }
         if (userData) {
             localStorage.setItem("user", JSON.stringify(userData));
@@ -75,50 +137,13 @@ export function AuthProvider({ children }) {
         }
     }, []);
 
-    useEffect(() => {
-        // Handle redirect callback from Google OAuth
-        const params = new URLSearchParams(window.location.search);
-        if (params.get("google_auth") === "success") {
-            const userData = {
-                id: params.get("id"),
-                name: params.get("name"),
-                email: params.get("email"),
-                picture: params.get("picture") || null,
-                is_verified: true,
-            };
-            const access_token = params.get("access_token");
-            const refresh_token = params.get("refresh_token");
-
-            login(userData, { access_token, refresh_token });
-
-            // Clean query parameters from URL without reload
-            const cleanUrl = window.location.pathname;
-            window.history.replaceState({}, document.title, cleanUrl);
-        }
-    }, [login]);
-
-    useEffect(() => {
-        // Handle popup postMessage from Google OAuth
-        const handleMessage = (event) => {
-            if (event.data?.type === "GOOGLE_AUTH_SUCCESS") {
-                const { user: userData, tokens } = event.data;
-                login(userData, tokens || {});
-            }
-        };
-
-        window.addEventListener("message", handleMessage);
-        return () => window.removeEventListener("message", handleMessage);
-    }, [login]);
-
     const logout = async () => {
         try {
-            const refreshToken = localStorage.getItem("refresh_token");
-            await api.post("/auth/logout", { refresh_token: refreshToken });
+            await api.post("/auth/logout");
         } catch (error) {
             console.error("Logout failed:", error);
         } finally {
             localStorage.removeItem("access_token");
-            localStorage.removeItem("refresh_token");
             localStorage.removeItem("user");
             setUser(null);
         }

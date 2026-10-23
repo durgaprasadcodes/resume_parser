@@ -71,6 +71,11 @@ async def register(
         json.dumps(user_data),
         ex=OTP_EXPIRY_SECONDS,
     )
+    REDIS_CLIENT.set(
+        f"RESUME_PARSER_MAX_SIGNUP_ATTEMPTS_{user.email}",
+        0,
+        ex=OTP_EXPIRY_SECONDS, 
+    )
 
     backgroundtasks.add_task(send_otp_email, user.email, otp, "email verification code")
 
@@ -121,7 +126,6 @@ async def login(
     return {
         "message": "Login successful.",
         "access_token": access_token,
-        "refresh_token": refresh_token,
         "token_type": "bearer",
         "email": db_user.email,
         "user": {
@@ -146,6 +150,17 @@ async def verify_otp(
 
     otp_key = f"RESUME_PARSER_OTP_{email}"
     user_data_key = f"CURRENT_USER_DATA_{email}"
+    max_attempts_key = f"RESUME_PARSER_MAX_SIGNUP_ATTEMPTS_{email}"
+
+    attempts = REDIS_CLIENT.get(max_attempts_key)
+
+    if attempts is not None and int(attempts) >= 5:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Too many attempts. Please try again later.",
+        )
+
+    REDIS_CLIENT.incr(max_attempts_key)
 
     # 1. Check if OTP exists
     stored_otp = REDIS_CLIENT.get(otp_key)
@@ -158,8 +173,6 @@ async def verify_otp(
 
     # 3. Compare OTP
     if str(stored_otp) != str(entered_otp):
-        REDIS_CLIENT.delete(otp_key)
-        REDIS_CLIENT.delete(user_data_key)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid OTP.",
@@ -198,10 +211,6 @@ async def verify_otp(
         is_verified=True,
     )
 
-    # 7. Delete OTP, temporary registration data, and attempt counter
-    REDIS_CLIENT.delete(user_data_key)
-    REDIS_CLIENT.delete(otp_key)
-
     db.add(new_user)
     db.flush()
 
@@ -219,12 +228,16 @@ async def verify_otp(
     db.commit()
     db.refresh(new_user)
 
+    # 7. Delete OTP, temporary registration data, and attempt counter
+    REDIS_CLIENT.delete(user_data_key)
+    REDIS_CLIENT.delete(otp_key)
+    REDIS_CLIENT.delete(max_attempts_key)
+
     set_auth_cookies(response, access_token, refresh_token, request)
 
     return {
         "message": "Account created successfully.",
         "access_token": access_token,
-        "refresh_token": refresh_token,
         "token_type": "bearer",
         "email": new_user.email,
         "user": {
@@ -250,6 +263,22 @@ async def get_current_user(
     }
 
 
+from datetime import datetime, timedelta, timezone
+
+REUSE_GRACE_SECONDS = 10 
+
+
+def _utcnow() -> datetime:
+    """Naive UTC datetime, matching what MySQL returns."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def _to_naive_utc(dt: datetime) -> datetime:
+    if dt.tzinfo is not None:
+        return dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return dt
+
+
 @router.post("/refresh")
 async def refresh_token_rotation(
     request: Request,
@@ -258,37 +287,55 @@ async def refresh_token_rotation(
 ):
     # 1. Get refresh token from cookie
     refresh_token = request.cookies.get("refresh_token")
-
     if not refresh_token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Refresh token is missing.",
         )
 
-    # 2. Hash the incoming token
+    # 2. Hash and look up the record (row-locked to prevent double rotation)
     hashed_token = hash_refresh_token(refresh_token)
-
-    # 3. Find the existing refresh-token record
-    refresh_token_record = (
+    record = (
         db.query(RefreshToken)
         .filter(RefreshToken.refresh_token == hashed_token)
+        .with_for_update()
         .first()
     )
 
-    if not refresh_token_record or refresh_token_record.revoked is not None:
+    if not record:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token is invalid.",
+        )
+
+    now = _utcnow()
+
+    # 3. Reuse detection
+    if record.revoked is not None:
+        revoked_at = _to_naive_utc(record.revoked)
+        within_grace = (now - revoked_at) <= timedelta(seconds=REUSE_GRACE_SECONDS)
+
+        if not within_grace:
+            # Old token replayed outside the grace window: assume theft,
+            # kill every active refresh token for this user.
+            (
+                db.query(RefreshToken)
+                .filter(
+                    RefreshToken.user_id == record.user_id,
+                    RefreshToken.revoked.is_(None),
+                )
+                .update({RefreshToken.revoked: now}, synchronize_session=False)
+            )
+            db.commit()
+
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Refresh token is invalid or revoked.",
         )
 
-    # 4. Check expiration safely
-    now = (
-        datetime.now(timezone.utc)
-        if refresh_token_record.expires_at.tzinfo
-        else datetime.utcnow()
-    )
-    if refresh_token_record.expires_at < now:
-        refresh_token_record.revoked = datetime.utcnow()
+    # 4. Expiry check
+    if _to_naive_utc(record.expires_at) < now:
+        record.revoked = now
         db.commit()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -296,41 +343,40 @@ async def refresh_token_rotation(
         )
 
     # 5. Get user
-    user = db.query(Users).filter(Users.id == refresh_token_record.user_id).first()
-
+    user = db.query(Users).filter(Users.id == record.user_id).first()
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found.",
         )
 
-    # 6. Create new access token
+    # 6. Create new tokens
     access_token = create_access_token(user.id, user.email)
-
-    # 7. Rotate refresh token
     new_refresh_token, hashed_new_refresh_token = create_refresh_token()
 
-    # 8. Revoke old refresh token
-    refresh_token_record.revoked = datetime.utcnow()
-
-    # 9. Create new refresh token record
-    new_refresh_token_record = RefreshToken(
+    # 7. Create the new record (same absolute expiry; change to now + 7 days
+    #    if you want a sliding session)
+    new_record = RefreshToken(
         refresh_token=hashed_new_refresh_token,
         user_id=user.id,
-        expires_at=refresh_token_record.expires_at,
-        revoked_by_id=refresh_token_record.id,
-        created_at=datetime.utcnow(),
+        expires_at=record.expires_at,
+        created_at=now,
     )
+    db.add(new_record)
+    db.flush()  # populates new_record.id
 
-    db.add(new_refresh_token_record)
+    # 8. Revoke the old token and point it at its replacement
+    record.revoked = now
+    record.revoked_by_id = new_record.id
+
     db.commit()
 
+    # 9. Set cookies; keep the refresh token out of the response body
     set_auth_cookies(response, access_token, new_refresh_token, request)
 
     return {
         "message": "Refresh token rotated successfully.",
         "access_token": access_token,
-        "refresh_token": new_refresh_token,
         "token_type": "bearer",
         "user": {
             "id": str(user.id),

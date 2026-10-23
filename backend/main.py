@@ -5,6 +5,7 @@ from pydantic import EmailStr
 from fastapi.middleware.cors import CORSMiddleware
 from config import limiter, FRONTEND_URL, GOOGLE_SESSION_SECRET
 from starlette.middleware.sessions import SessionMiddleware
+from config import IS_PRODUCTION
 
 app = FastAPI(
     title="Hirelense.ai API",
@@ -27,7 +28,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.add_middleware(SessionMiddleware, secret_key=GOOGLE_SESSION_SECRET)
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=GOOGLE_SESSION_SECRET,
+    https_only=IS_PRODUCTION,
+    same_site="None" if IS_PRODUCTION else "lax",
+)
 
 
 @app.get("/")

@@ -133,7 +133,11 @@ def set_auth_cookies(
     access_token: str,
     refresh_token: str,
     request: Request = None,
-):
+) -> str:
+    """Sets only the refresh_token as an httpOnly cookie.
+    Returns the access_token so callers can include it in the JSON response
+    for the frontend to store in localStorage.
+    """
     is_secure = (
         IS_PRODUCTION
         or (request is not None and request.url.scheme == "https")
@@ -142,23 +146,17 @@ def set_auth_cookies(
     samesite = "none" if is_secure else "lax"
 
     response.set_cookie(
-        key="access_token",
-        value=access_token,
-        httponly=True,
-        secure=is_secure,
-        max_age=60 * ACCESS_TOKEN_EXPIRY_TIME,
-        samesite=samesite,
-        path="/",
-    )
-    response.set_cookie(
         key="refresh_token",
         value=refresh_token,
         httponly=True,
         secure=is_secure,
-        max_age=60 * 60 * 24 * REFRESH_TOKEN_EXPIRY_TIME,
+        # max_age=60 * 60 * 24 * REFRESH_TOKEN_EXPIRY_TIME,
+        max_age=90,
         samesite=samesite,
         path="/",
     )
+
+    return access_token
 
 
 def clear_auth_cookies(response: Response, request: Request = None):
@@ -169,13 +167,6 @@ def clear_auth_cookies(response: Response, request: Request = None):
     )
     samesite = "none" if is_secure else "lax"
 
-    response.delete_cookie(
-        key="access_token",
-        path="/",
-        secure=is_secure,
-        samesite=samesite,
-        httponly=True,
-    )
     response.delete_cookie(
         key="refresh_token",
         path="/",

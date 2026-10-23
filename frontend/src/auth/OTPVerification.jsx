@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import api from "../api/api";
 import { useAuth } from "./AuthContext";
@@ -85,9 +85,8 @@ function OTPVerification() {
     };
 
 
-    const handleVerifyOTP = async (e) => {
-
-        e.preventDefault();
+    const handleVerifyOTP = useCallback(async (e) => {
+        if (e?.preventDefault) e.preventDefault();
 
         setError("");
         setMessage("");
@@ -116,8 +115,8 @@ function OTPVerification() {
             if (response.status === 200) {
                 sessionStorage.removeItem("pendingRegistrationEmail");
 
-                const { access_token, refresh_token, user: userData } = response.data;
-                login(userData || { email }, { access_token, refresh_token });
+                const { access_token, user: userData } = response.data;
+                login(userData || { email }, { access_token });
 
                 setMessage(
                     response.data.message || "Account verified!"
@@ -143,7 +142,15 @@ function OTPVerification() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [email, otpDigits, login, navigate]);
+
+
+    /* Auto-submit when all 6 digits are filled */
+    useEffect(() => {
+        if (otpDigits.every((d) => d !== "")) {
+            handleVerifyOTP();
+        }
+    }, [otpDigits, handleVerifyOTP]);
 
 
     return (

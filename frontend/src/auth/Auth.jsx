@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import api from "../api/api";
@@ -18,26 +18,30 @@ function Login() {
     });
 
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState("");
+    const [error, setError] = useState(
+        () => new URLSearchParams(window.location.search).get("error") || ""
+    );
     const [success, setSuccess] = useState("");
 
     // --------------------------------------------------
     // Check OAuth errors from backend
     // --------------------------------------------------
 
-    useState(() => {
+    useEffect(() => {
         const params = new URLSearchParams(window.location.search);
-        const urlError = params.get("error");
 
-        if (urlError) {
-            setError(urlError);
-
+        if (params.has("error")) {
             window.history.replaceState(
                 {},
                 document.title,
                 window.location.pathname
             );
         }
+
+        const handlePageShow = () => setLoading(false);
+        window.addEventListener("pageshow", handlePageShow);
+
+        return () => window.removeEventListener("pageshow", handlePageShow);
     }, []);
 
     // --------------------------------------------------
@@ -46,22 +50,29 @@ function Login() {
 
     const handleGoogleAuth = () => {
         setError("");
-        setLoading(true);
 
         const apiUrl =
-            import.meta.env.VITE_API_URL || "http://localhost:8000";
+            import.meta.env.VITE_API_URL ||
+            (import.meta.env.DEV ? "http://127.0.0.1:8000" : "");
 
-        /*
-         * IMPORTANT:
-         *
-         * Do NOT use window.open()
-         * Do NOT use popup
-         * Do NOT use postMessage()
-         *
-         * This redirects the CURRENT TAB to Google OAuth.
-         */
+        if (!apiUrl) {
+            setError("Google sign-in is not configured. Please try again later.");
+            setLoading(false);
+            return;
+        }
 
-        window.location.href = `${apiUrl}/google/login`;
+        try {
+            const loginUrl = new URL("/google/login", apiUrl);
+            if (!["http:", "https:"].includes(loginUrl.protocol)) {
+                throw new Error("Invalid API URL protocol.");
+            }
+
+            setLoading(true);
+            window.location.assign(loginUrl.toString());
+        } catch {
+            setError("Unable to start Google sign-in. Please try again.");
+            setLoading(false);
+        }
     };
 
     // --------------------------------------------------
@@ -97,18 +108,12 @@ function Login() {
             if (response.status === 200) {
                 const {
                     access_token,
-                    refresh_token,
                     user: userData,
                 } = response.data;
 
                 login(
-                    userData || {
-                        email: formData.email,
-                    },
-                    {
-                        access_token,
-                        refresh_token,
-                    }
+                    userData || { email: formData.email },
+                    { access_token }
                 );
 
                 navigate("/", {

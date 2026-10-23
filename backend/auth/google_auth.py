@@ -1,22 +1,24 @@
-import json
-from datetime import datetime, timezone, timedelta
-from fastapi import APIRouter, HTTPException, status, Depends, Response
-from fastapi.responses import HTMLResponse
-from database import get_db
+from datetime import datetime, timedelta, timezone
+from urllib.parse import urlencode
+
+from authlib.integrations.base_client.errors import OAuthError
+from authlib.integrations.starlette_client import OAuth
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
+from starlette.requests import Request
+
 from config import (
-    set_auth_cookies,
     FRONTEND_URL,
-    REFRESH_TOKEN_EXPIRY_TIME,
     GOOGLE_CLIENT_ID,
     GOOGLE_CLIENT_SECRET,
     GOOGLE_REDIRECT_URL,
+    REFRESH_TOKEN_EXPIRY_TIME,
+    set_auth_cookies,
 )
-from starlette.requests import Request
-from models.model import Users, RefreshToken
+from database import get_db
+from models.model import RefreshToken, Users
 from tokens.jwt_token import create_access_token, create_refresh_token
-from authlib.integrations.starlette_client import OAuth
-from authlib.integrations.base_client.errors import OAuthError
 
 oauth = OAuth()
 
@@ -24,99 +26,129 @@ oauth.register(
     name="google",
     client_id=GOOGLE_CLIENT_ID,
     client_secret=GOOGLE_CLIENT_SECRET,
-    server_metadata_url=(
-        "https://accounts.google.com/.well-known/openid-configuration"
-    ),
+    server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
     client_kwargs={"scope": "openid email profile"},
 )
 
 google_router = APIRouter(tags=["Google Authentication"], prefix="/google")
 
 
+def _frontend_redirect(
+    error: str | None = None,
+    access_token: str | None = None,
+    user_name: str | None = None,
+    user_email: str | None = None,
+    user_picture: str | None = None,
+) -> RedirectResponse:
+    if not FRONTEND_URL:
+        raise HTTPException(
+            status_code=500, detail="Frontend URL is not configured for Google login."
+        )
+
+    frontend_url = FRONTEND_URL.rstrip("/")
+    if error:
+        url = f"{frontend_url}/login?{urlencode({'error': error})}"
+    elif access_token:
+        # Pass access_token and user info via URL hash fragment.
+        # Hash fragments are never sent to the server, keeping the token client-side only.
+        params = urlencode({
+            "access_token": access_token,
+            "name": user_name or "",
+            "email": user_email or "",
+            "picture": user_picture or "",
+        })
+        url = f"{frontend_url}/#oauth-callback?{params}"
+    else:
+        url = f"{frontend_url}/"
+
+    return RedirectResponse(url, status_code=303)
+
+
 @google_router.get("/login")
 async def google_login(request: Request):
-
     return await oauth.google.authorize_redirect(request, GOOGLE_REDIRECT_URL)
 
 
 @google_router.get("/callback")
-async def google_callback(
-    request: Request, response: Response, db: Session = Depends(get_db)
-):
+async def google_callback(request: Request, db: Session = Depends(get_db)):
     google_error = request.query_params.get("error")
     if google_error:
         error_desc = request.query_params.get(
             "error_description", "Google authentication was cancelled or access denied."
         )
-        raise HTTPException(status_code=403,detail=error_desc)
+        return _frontend_redirect(error_desc)
 
     try:
         token = await oauth.google.authorize_access_token(request)
     except OAuthError as err:
-        err_msg = err.description or err.error or "Google authentication failed."
-        raise HTTPException(status_code=403,detail=err_msg)
-    except Exception as err:
-        raise HTTPException(
-            status_code=403,detail=f"Google authentication failed: {str(err)}"
+        return _frontend_redirect(
+            err.description or err.error or "Google authentication failed."
         )
 
     user_info = token.get("userinfo") if token else None
-
     if not user_info:
-        raise HTTPException(status_code=403,detail="Unable to retrieve Google user information")
+        return _frontend_redirect("Unable to retrieve Google user information.")
 
     if not user_info.get("email_verified"):
-        raise HTTPException(status_code=403, detail="Google Email Is Not Verified")
+        return _frontend_redirect("Your Google email address is not verified.")
 
     google_id = user_info.get("sub")
     email = user_info.get("email")
-    name = user_info.get("name")
-    picture = user_info.get("picture")
+    if not google_id or not email:
+        return _frontend_redirect(
+            "Google did not provide the required account details."
+        )
 
-    # 4. Check Google ID
-    google_user = db.query(Users).filter(Users.google_id == google_id).first()
+    # 1. Try to find user by Google ID
+    user = db.query(Users).filter(Users.google_id == google_id).first()
 
-    if google_user:
+    if user:
+        # Existing Google account
+        user.name = user_info.get("name") or user.name
+        user.picture = user_info.get("picture") or user.picture
+        user.is_verified = True
 
-        google_user.name = name
-        google_user.email = email
-        google_user.google_id = google_id
-        google_user.picture = picture
-        google_user.is_verified = True
+    else:
+        # 2. Google ID not found → try email
+        user = db.query(Users).filter(Users.email == email).first()
 
-        db.commit()
-        db.refresh(google_user)
+        if user:
+            # Existing email account → link Google account
+            user.google_id = google_id
+            user.picture = user_info.get("picture") or user.picture
+            user.is_verified = True
 
-        set_auth_cookies(response, google_user.email, google_user.id)
+        else:
+            # 3. Neither Google ID nor email exists → create new user
+            user = Users(
+                name=user_info.get("name") or email.split("@")[0],
+                email=email,
+                google_id=google_id,
+                picture=user_info.get("picture"),
+                is_verified=True,
+            )
 
-        return {"name":name,"email":email,"picture":picture}
+            db.add(user)
 
-    # 5. Check if email already exists
-    email_user = db.query(Users).filter(Users.email == email).first()
-
-    if email_user:
-
-        email_user.picture = picture
-        email_user.google_id = google_id
-        email_user.is_verified = True
-
-        db.commit()
-        db.refresh(email_user)
-
-        set_auth_cookies(response, email_user.email, email_user.id)
-
-        return {"name":name,"email":email,"picture":picture}
-
-    # 6. Create new user
-    new_user_record = Users(
-        name=name, email=email, google_id=google_id, picture=picture, is_verified=True
+    db.flush()
+    access_token = create_access_token(user.id, user.email)
+    refresh_token, hashed_refresh_token = create_refresh_token()
+    db.add(
+        RefreshToken(
+            refresh_token=hashed_refresh_token,
+            user_id=user.id,
+            expires_at=datetime.now(timezone.utc)
+            + timedelta(days=REFRESH_TOKEN_EXPIRY_TIME),
+        )
     )
-
-    db.add(new_user_record)
     db.commit()
-    db.refresh(new_user_record)
+    db.refresh(user)
 
-    # 7. Login newly created user
-    set_auth_cookies(response, new_user_record.email, new_user_record.id)
-
-    return {"name":name,"email":email,"picture":picture}
+    response = _frontend_redirect(
+        access_token=access_token,
+        user_name=user.name,
+        user_email=user.email,
+        user_picture=user.picture,
+    )
+    set_auth_cookies(response, access_token, refresh_token, request)
+    return response
