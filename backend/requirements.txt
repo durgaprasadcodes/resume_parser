@@ -43,3 +43,6 @@ langchain-groq
 
 # Embeddings
 langchain-google-genai
+
+# Vector DataBase
+langchain-postgres

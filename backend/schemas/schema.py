@@ -1,6 +1,8 @@
-from pydantic import EmailStr, field_validator, BaseModel
+from pydantic import EmailStr, field_validator, BaseModel, Field
+from typing import List, Optional
 from models.model import Users
 import re
+from config import ats_score_description
 
 
 class RegistrationSchema(BaseModel):
@@ -71,3 +73,44 @@ class ChangePasswordRequest(BaseModel):
             raise ValueError("Password must contain at least one digit.")
         return v
 
+
+class Project(BaseModel):
+    name: str = Field(description="Name of the project")
+    description: str = Field(
+        description="Brief summary of the project, its technical implementation, and what was achieved"
+    )
+    project_value: str = Field(description=ats_score_description)
+
+
+class SkillAnalysis(BaseModel):
+    matched: List[str] = Field(description="Skills in both the JD and the resume")
+    unmatched: List[str] = Field(
+        description="Important JD skills missing from the resume"
+    )
+
+
+class Improvements(BaseModel):
+    positives: List[str] = Field(
+        description="Specific strengths of the resume for this JD, per system rules"
+    )
+    negatives: List[str] = Field(
+        description="Specific weaknesses and fixes for this JD, per system rules"
+    )
+
+
+class Resume(BaseModel):
+    name: str = Field(description="Full name of the candidate")
+    ats_score: int = Field(
+        description="ATS score 0-100 using the system-prompt rubric", ge=0, le=100
+    )
+    profession: str = Field(description="Current professional title")
+    summary: str = Field(description="Short resume summary")
+    skills: SkillAnalysis
+    projects: List[Project]
+    experience: List[str] = Field(
+        description="Work history with companies and roles. Never list colleges or schools."
+    )
+    certifications: List[str] = Field(
+        description="Licenses, certifications or courses in the resume"
+    )
+    improvements: Improvements

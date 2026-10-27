@@ -174,3 +174,20 @@ def clear_auth_cookies(response: Response, request: Request = None):
         samesite=samesite,
         httponly=True,
     )
+
+
+ats_score_description = """
+Compute the ATS compatibility score (integer 0-100) of the resume against the Job Description (JD). Be strict, evidence-based and deterministic: the same normalized resume + same JD must always give exactly the same score. Never vary the score because of wording, randomness, reasoning order, re-uploads, repeated evaluation or explanation differences. No subjective impressions: score only resume evidence vs JD requirements.
+
+Rubric (max points):
+1. Required skills/technologies (30): match languages, frameworks, libraries, databases, platforms, tools. Required skills outweigh preferred. No points for skills the resume does not support.
+2. Responsibility alignment (20): compare JD responsibilities with demonstrated projects/experience/work. Points only with evidence.
+3. Project relevance (20): relevance to JD, technical depth, implementation, deployment, scale, outcomes. No extra points for multiple projects using the same technology.
+4. Experience alignment (15): relevant internships/professional experience weighs far more than unrelated. Education is NOT professional experience. No relevant experience = no points; never invent it.
+5. Education & certifications (10): only JD-relevant ones count; generic/unrelated certifications earn little.
+6. Keyword alignment (5): JD terms must appear naturally with evidence of real use. No credit for keyword stuffing.
+
+Bands: 90-100 exceptional (major requirements strongly met, substantial evidence); 80-89 strong (most important requirements met, minor gaps); 70-79 good/moderate (many met, noticeable gaps); 60-69 limited (several important requirements missing/weak); 40-59 poor (major requirements missing/unsupported); 0-39 very poor (little evidence of suitability).
+
+Rules: Do not inflate for a generally impressive resume; score only fit to this JD. Do not penalize absence of things the JD neither requires nor prefers. Never invent experience, skills, projects, certifications or achievements.
+"""
