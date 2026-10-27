@@ -74,7 +74,7 @@ async def register(
     REDIS_CLIENT.set(
         f"RESUME_PARSER_MAX_SIGNUP_ATTEMPTS_{user.email}",
         0,
-        ex=OTP_EXPIRY_SECONDS, 
+        ex=OTP_EXPIRY_SECONDS,
     )
 
     backgroundtasks.add_task(send_otp_email, user.email, otp, "email verification code")
@@ -265,7 +265,7 @@ async def get_current_user(
 
 from datetime import datetime, timedelta, timezone
 
-REUSE_GRACE_SECONDS = 10 
+REUSE_GRACE_SECONDS = 10
 
 
 def _utcnow() -> datetime:
@@ -420,7 +420,9 @@ async def logout(
 async def test_brevo():
 
     result = await send_otp_email(
-        recipient_email="durgaprasad04289@gmail.com", otp="123456"
+        recipient_email="durgaprasad04289@gmail.com",
+        otp="123456",
+        context="testing email",
     )
 
     return {"message": "Email sent successfully", "brevo": result}

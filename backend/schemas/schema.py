@@ -1,5 +1,5 @@
 from pydantic import EmailStr, field_validator, BaseModel, Field
-from typing import List, Optional
+from typing import List, Optional, Literal
 from models.model import Users
 import re
 from config import ats_score_description
@@ -74,12 +74,26 @@ class ChangePasswordRequest(BaseModel):
         return v
 
 
-class Project(BaseModel):
+class ProjectDescription(BaseModel):
     name: str = Field(description="Name of the project")
     description: str = Field(
         description="Brief summary of the project, its technical implementation, and what was achieved"
     )
     project_value: str = Field(description=ats_score_description)
+    score: int = Field(
+        ge=0,
+        le=100,
+        description="Relevance and quality score for this individual project from 0 to 100",
+    )
+
+
+class Project(BaseModel):
+    projects: ProjectDescription
+    final_score: int = Field(
+        ge=0,
+        le=100,
+        description="Overall project score from 0 to 100, considering all projects collectively",
+    )
 
 
 class SkillAnalysis(BaseModel):
@@ -87,14 +101,44 @@ class SkillAnalysis(BaseModel):
     unmatched: List[str] = Field(
         description="Important JD skills missing from the resume"
     )
+    final_score: int = Field(
+        description="Give me the Final Evalutes score for Skills with mathed skills divided by total skills from resume out of 100"
+    )
 
 
-class Improvements(BaseModel):
+class Classification(BaseModel):
     positives: List[str] = Field(
         description="Specific strengths of the resume for this JD, per system rules"
     )
     negatives: List[str] = Field(
         description="Specific weaknesses and fixes for this JD, per system rules"
+    )
+
+
+class Certifications(BaseModel):
+    certificates: List[str] = Field(
+        description="Licenses, certifications or courses in the resume"
+    )
+    final_score: int = Field(
+        description="Give me the Final Evalutes score for Certifications out of 100"
+    )
+
+
+class Improvement(BaseModel):
+    priority: Literal["HIGH", "MEDIUM", "LOW"] = Field(
+        description="Priority of this improvement based on how strongly it affects the candidate's alignment with the job description"
+    )
+
+    area: str = Field(
+        description="Specific resume area or skill that needs improvement, such as Summary,Projects,Experince,Achiements,Certifications,font-selection or any other Suspicous things in resume"
+    )
+
+    problem: str = Field(
+        description="Specific gap or weakness identified in the resume compared with the job description"
+    )
+
+    reason: str = Field(
+        description="Explain why this gap matters for the target job description"
     )
 
 
@@ -110,7 +154,8 @@ class Resume(BaseModel):
     experience: List[str] = Field(
         description="Work history with companies and roles. Never list colleges or schools."
     )
-    certifications: List[str] = Field(
-        description="Licenses, certifications or courses in the resume"
+    certifications: Certifications
+    resume_quality: Classification
+    impreovements: list[Improvement] = Field(
+        description="Prioritized and actionable improvements that would increase the resume's alignment with the job description"
     )
-    improvements: Improvements

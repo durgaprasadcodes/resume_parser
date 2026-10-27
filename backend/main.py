@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from config import limiter, FRONTEND_URL, GOOGLE_SESSION_SECRET
 from starlette.middleware.sessions import SessionMiddleware
 from config import IS_PRODUCTION
+from agent.bot import agent_router
 
 app = FastAPI(
     title="Hirelense.ai API",
@@ -46,3 +47,5 @@ app.state.limiter = limiter
 app.include_router(router)
 
 app.include_router(google_router)
+
+app.include_router(agent_router)

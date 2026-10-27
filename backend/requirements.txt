@@ -3,6 +3,7 @@ uvicorn[standard]
 
 # File Uploading
 python-multipart
+boto3
 
 # Database
 sqlalchemy

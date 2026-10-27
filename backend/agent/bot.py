@@ -1,12 +1,15 @@
 from dotenv import load_dotenv
 from langchain_groq import ChatGroq
-from langchain_postgres import PGVector
 from langchain_community.document_loaders import PyMuPDFLoader
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from schemas.schema import Resume
-import os
+from models.model import Users, Resumes
+from config import limiter
 import json
+import os
+from pathlib import Path
+from tempfile import NamedTemporaryFile
+from fastapi import UploadFile, File, status, HTTPException, APIRouter, Request
 
 load_dotenv()
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
@@ -101,16 +104,71 @@ LLM = ChatGroq(
     api_key=GROQ_API_KEY,
 )
 
-embedding_model = GoogleGenerativeAIEmbeddings(
-    model="gemini-embedding-2", api_key=GEMINI_API_KEY
-)
+agent_router = APIRouter(tags=["Hirelense Resume Parser"], prefix="/hirelense")
 
-resume_text = split_documents(
-    r"C:\Users\rolex\OneDrive\Desktop\Placements\Durga_Prasad_Kota_Resume.pdf"
-)
+MAX_FILE_SIZE = 5 * 1024 * 1024
+ALLOWED_EXTENSIONS = {".pdf"}
 
-result = analyze_resume_vs_jd_groq(
-    LLM.with_structured_output(Resume), resume_text, demo_job_description
-)
 
-print(result)
+@agent_router.post("/upload")
+@limiter.limit("3/minutes")
+async def upload_resume(request: Request, file: UploadFile = File(...)):
+
+    file_extension = Path(file.filename).suffix.lower()
+    if file_extension not in ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid file type. Allowed extensions: {', '.join(ALLOWED_EXTENSIONS)}",
+        )
+
+    if file.size > MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=413,
+            detail=(
+                f"File is too large. "
+                f"Maximum allowed size is "
+                f"{MAX_FILE_SIZE / (1024 * 1024):.2f} MB."
+            ),
+        )
+
+    # Create temporary PDF
+    with NamedTemporaryFile(delete=False, suffix=".pdf") as temp_file:
+        temp_file.write(await file.read())
+        file_path = temp_file.name
+
+    try:
+        resume_text = split_documents(file_path=file_path)
+
+        result = analyze_resume_vs_jd_groq(
+            LLM.with_structured_output(Resume), resume_text, demo_job_description
+        )
+
+        return {
+            "filename": file.filename,
+            "size": file.size,
+            "content_type": file.content_type,
+            "result": result,
+        }
+
+    finally:
+        Path(file_path).unlink(missing_ok=True)
+
+    # try:
+    #     # upload_fileobj streams the file directly from the open file handle to AWS
+    #     s3_client.upload_fileobj(
+    #         file.file,
+    #         S3_BUCKET_NAME,
+    #         file.filename,
+    #         ExtraArgs={"ContentType": file.content_type} # Ensures correct browser rendering
+    #     )
+
+    #     s3_url = f"https://{S3_BUCKET_NAME}://{file.filename}"
+    #     return {
+    #         "message": "File uploaded directly to AWS S3",
+    #         "url": s3_url
+    #     }
+
+    # except NoCredentialsError:
+    #     raise HTTPException(status_code=500, detail="AWS credentials not found or invalid.")
+    # except Exception as e:
+    #     raise HTTPException(status_code=500, detail=f"S3 Upload failed: {str(e)}")
