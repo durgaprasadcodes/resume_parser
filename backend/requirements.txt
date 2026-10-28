@@ -2,14 +2,14 @@ fastapi
 uvicorn[standard]
 
 # File Uploading
+supabase 
 python-multipart
-boto3
 
 # Database
 sqlalchemy
 alembic
-psycopg2-binary
 pgvector
+psycopg2-binary
 
 # Authentication
 authlib
@@ -18,7 +18,7 @@ itsdangerous
 pwdlib[argon2]
 slowapi
 
-# Environment
+# Environment 
 python-dotenv
 
 # Cache / OTP

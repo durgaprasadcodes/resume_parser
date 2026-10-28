@@ -8,8 +8,8 @@ from dotenv import load_dotenv
 from upstash_redis import Redis
 from pwdlib import PasswordHash
 from fastapi import Request, Response
-from email.message import EmailMessage
 from slowapi.util import get_remote_address
+from supabase import create_client, Client
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +18,11 @@ load_dotenv()
 PassDriver = PasswordHash.recommended()
 
 limiter = Limiter(key_func=get_remote_address)
+
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
 def hash_password(password: str | int) -> str:
@@ -190,4 +195,44 @@ Rubric (max points):
 Bands: 90-100 exceptional (major requirements strongly met, substantial evidence); 80-89 strong (most important requirements met, minor gaps); 70-79 good/moderate (many met, noticeable gaps); 60-69 limited (several important requirements missing/weak); 40-59 poor (major requirements missing/unsupported); 0-39 very poor (little evidence of suitability).
 
 Rules: Do not inflate for a generally impressive resume; score only fit to this JD. Do not penalize absence of things the JD neither requires nor prefers. Never invent experience, skills, projects, certifications or achievements.
+"""
+
+SYSTEM_PROMPT = """You are an expert ATS/HR analyst. Compare the resume to the Job Description (JD) and fill the required structured output. Use only evidence in the resume and requirements in the JD. Never invent experience, skills, projects, certifications or achievements.
+
+ATS SCORE (integer 0-100): strict, evidence-based, deterministic. Same resume + same JD must always give the same score; no subjective impressions.
+Rubric: required skills/technologies 30 (required > preferred; no points for unsupported skills); responsibility alignment 20; project relevance 20 (depth, deployment, scale, outcomes; no extra points for many projects on the same tech); experience alignment 15 (education is NOT experience; none relevant = 0 points); education/certifications 10 (only JD-relevant); keyword alignment 5 (needs evidence of real use; no keyword-stuffing credit).
+Bands: 90-100 exceptional; 80-89 strong; 70-79 moderate; 60-69 limited; 40-59 poor; 0-39 very poor.
+Do not inflate for a generally impressive resume. Do not penalize absence of things the JD does not require or prefer.
+
+SKILLS: matched = JD skills the resume clearly shows; unmatched = important JD skills not explicitly shown or implied.
+
+NEGATIVES (critical but fair; each item states WHAT is wrong, WHY it matters for this role, WHAT to change; no generic advice; every point grounded in resume/JD evidence; distinguish a real deficiency from something merely unmentioned). Check: JD requirement/responsibility gaps; skills listed but never demonstrated; summary misaligned, vague or missing JD strengths; low-relevance projects and why; repetitive projects (e.g. several regression ML projects) and missing categories (classification, NLP, CV, RAG/LLM, backend, cloud, real-time, data engineering) only if the repetition is actually present; suspicious or unvalidated metrics (very high R2/accuracy without methodology) as a potential concern for overfitting/leakage, never asserted as fact; shallow/tutorial-like projects and missing engineering details (deployment, testing, auth, scalability, DB/API design, CI/CD, cloud); no or unrelated or poorly described professional experience (never count education as experience); generic/outdated certifications (do not penalize one only for not being in the JD); vague wording, weak verbs, missing measurable outcomes; missing JD terms that could truthfully be added, keyword stuffing.
+
+POSITIVES (specific, resume-based, explain WHY each strengthens the application; do not just list keywords): JD-aligned skills shown in projects/experience; summary alignment; relevant projects (complexity, deployment, APIs, databases, ML/AI, cloud) and credible metrics; useful project diversity; relevant experience; relevant certifications; credibility evidence (deployed apps, measurable outcomes, production-like architecture); ATS/recruiter value.
+
+LENGTH LIMITS (keep the response compact and always complete): at most 6 negatives and 5 positives, each at most 2 sentences; project_value at most 2 sentences; empty list when there is no work experience. Respond only with the structured output."""
+
+
+demo_job_description = """
+    As a Machine Learning intern at NayePankh Foundation, you will have the opportunity to apply your expertise in Machine Learning, Python, Data Analytics, R Programming, Data Science, Natural Language Processing (NLP), Deep Learning, and Artificial Intelligence to drive innovative solutions in the field of education. Your responsibilities will include:
+
+1. Developing and implementing machine learning models to enhance educational tools and resources.
+2. Conducting data analysis to gain insights into student learning patterns and behavior.
+3. Collaborating with cross-functional teams to integrate machine learning capabilities into existing systems.
+4. Utilizing NLP techniques to improve communication and interaction with students and teachers.
+5. Exploring deep learning algorithms to optimize educational content delivery and personalization.
+6. Contributing to the research and development of AI-driven solutions for educational challenges.
+7. Assisting in the design and execution of experiments to evaluate the effectiveness of machine learning solutions in educational settings.
+
+Join us at NayePankh Foundation and make a meaningful impact on the future of education through advanced machine learning technologies.
+Skill(s) required
+Artificial intelligence
+Data Analytics
+Data Science
+Deep Learning
+Machine Learning
+Natural Language Processing (NLP)
+Python
+R Programming
+
 """
