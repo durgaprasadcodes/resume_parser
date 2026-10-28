@@ -1,0 +1,26 @@
+# Environment & Secrets
+.env
+.env.*
+!.env.example
+
+# AI assistant & tool configurations
+.agent/
+.agents/
+.claude/
+.codex/
+.cursor/
+.gemini/
+.impeccable/
+.opencode/
+
+# Virtual Environment
+venv/
+.venv/
+env/
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+

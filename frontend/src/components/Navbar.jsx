@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
-
+import hirelenseLogo from "../assets/hirelense.png";
 
 function Navbar() {
 
@@ -52,6 +52,11 @@ function Navbar() {
     };
 
 
+    const goToRoute = (route) => {
+        setMobileOpen(false);
+        navigate(route)
+    };
+
     /* ---- User icon SVG (fallback when no picture) ---- */
     const UserIcon = () => (
         <svg
@@ -75,33 +80,46 @@ function Navbar() {
 
                 {/* ---- BRAND ---- */}
                 <Link to="/" className="navbar-brand">
-                    Hirelense<span className="brand-dot">.ai</span>
+                    <span className="navbar-brand-image-wrap">
+                        <img src={hirelenseLogo} alt="HireLense" className="navbar-brand-image" />
+                    </span>
                 </Link>
 
 
                 {/* ---- DESKTOP NAV LINKS ---- */}
                 <div className="navbar-nav">
 
-                    <Link
-                        to="/"
-                        className={`nav-link${isActive("/") ? " active" : ""}`}
+                    <button
+                        type="button"
+                        onClick={() => goToRoute("/")}
+                        className="nav-link nav-link-btn"
                     >
                         Home
-                    </Link>
+                    </button>
 
-                    <Link
-                        to="/analysis"
-                        className={`nav-link${isActive("/analysis") ? " active" : ""}`}
+                    <button
+                        type="button"
+                        onClick={() => goToRoute("/check_ats_score")}
+                        className="nav-link nav-link-btn"
                     >
-                        Resume
-                    </Link>
+                        Check ATS Score
+                    </button>
 
-                    <Link
-                        to="/profile"
-                        className={`nav-link${isActive("/profile") ? " active" : ""}`}
+                    <button
+                        type="button"
+                        onClick={() => goToRoute("/build_resume")}
+                        className="nav-link nav-link-btn"
+                    >
+                        Build Resume
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => goToRoute("/profile")}
+                        className="nav-link nav-link-btn"
                     >
                         Profile
-                    </Link>
+                    </button>
 
                 </div>
 
@@ -110,105 +128,108 @@ function Navbar() {
                 <div className="navbar-actions">
 
                     {isauthenticated ? (
-                        /* Logged in — show profile avatar with dropdown */
-                        <div className="profile-dropdown-wrapper" ref={dropdownRef}>
-
-                            <button
-                                className="nav-profile-btn"
-                                onClick={() => setDropdownOpen(!dropdownOpen)}
-                                aria-label="Open profile menu"
-                            >
-                                {user?.picture ? (
-                                    <img
-                                        src={user.picture}
-                                        alt={user.name || "Profile"}
-                                        onError={(e) => {
-                                            e.currentTarget.style.display = 'none';
-                                            if (e.currentTarget.nextElementSibling) {
-                                                e.currentTarget.nextElementSibling.style.display = 'flex';
-                                            }
-                                        }}
-                                    />
-                                ) : null}
-                                <div
-                                    className="nav-profile-icon-wrapper"
-                                    style={{ display: user?.picture ? 'none' : 'flex' }}
+                        /* Logged in — show quick analysis button + profile avatar */
+                        <>
+                            <Link to="/analysis" className="btn-nav-primary">
+                                Launch App →
+                            </Link>
+                            <div className="profile-dropdown-wrapper" ref={dropdownRef}>
+                                <button
+                                    className="nav-profile-btn"
+                                    onClick={() => setDropdownOpen(!dropdownOpen)}
+                                    aria-label="Open profile menu"
                                 >
-                                    <UserIcon />
-                                </div>
-                            </button>
+                                    {user?.picture ? (
+                                        <img
+                                            src={user.picture}
+                                            alt={user.name || "Profile"}
+                                            onError={(e) => {
+                                                e.currentTarget.style.display = 'none';
+                                                if (e.currentTarget.nextElementSibling) {
+                                                    e.currentTarget.nextElementSibling.style.display = 'flex';
+                                                }
+                                            }}
+                                        />
+                                    ) : null}
+                                    <div
+                                        className="nav-profile-icon-wrapper"
+                                        style={{ display: user?.picture ? 'none' : 'flex' }}
+                                    >
+                                        <UserIcon />
+                                    </div>
+                                </button>
 
-                            {dropdownOpen && (
-                                <div className="profile-dropdown">
+                                {dropdownOpen && (
+                                    <div className="profile-dropdown">
 
-                                    <div className="dropdown-user-info">
-                                        <div className="dropdown-user-header">
-                                            <div className="dropdown-avatar">
-                                                {user?.picture ? (
-                                                    <img
-                                                        src={user.picture}
-                                                        alt={user.name || "Profile"}
-                                                        onError={(e) => {
-                                                            e.currentTarget.style.display = 'none';
-                                                            if (e.currentTarget.nextElementSibling) {
-                                                                e.currentTarget.nextElementSibling.style.display = 'flex';
-                                                            }
-                                                        }}
-                                                    />
-                                                ) : null}
-                                                <div
-                                                    className="dropdown-avatar-fallback"
-                                                    style={{ display: user?.picture ? 'none' : 'flex' }}
-                                                >
-                                                    <UserIcon />
+                                        <div className="dropdown-user-info">
+                                            <div className="dropdown-user-header">
+                                                <div className="dropdown-avatar">
+                                                    {user?.picture ? (
+                                                        <img
+                                                            src={user.picture}
+                                                            alt={user.name || "Profile"}
+                                                            onError={(e) => {
+                                                                e.currentTarget.style.display = 'none';
+                                                                if (e.currentTarget.nextElementSibling) {
+                                                                    e.currentTarget.nextElementSibling.style.display = 'flex';
+                                                                }
+                                                            }}
+                                                        />
+                                                    ) : null}
+                                                    <div
+                                                        className="dropdown-avatar-fallback"
+                                                        style={{ display: user?.picture ? 'none' : 'flex' }}
+                                                    >
+                                                        <UserIcon />
+                                                    </div>
                                                 </div>
-                                            </div>
-                                            <div className="dropdown-user-text">
-                                                <div className="user-name">
-                                                    {user?.name || "User"}
-                                                </div>
-                                                <div className="user-email">
-                                                    {user?.email || ""}
+                                                <div className="dropdown-user-text">
+                                                    <div className="user-name">
+                                                        {user?.name || "User"}
+                                                    </div>
+                                                    <div className="user-email">
+                                                        {user?.email || ""}
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
+
+                                        <Link
+                                            to="/profile"
+                                            className="dropdown-item"
+                                            onClick={() => setDropdownOpen(false)}
+                                        >
+                                            👤 Profile
+                                        </Link>
+
+                                        <Link
+                                            to="/analysis"
+                                            className="dropdown-item"
+                                            onClick={() => setDropdownOpen(false)}
+                                        >
+                                            📄 Analyze Resume
+                                        </Link>
+
+                                        <button
+                                            className="dropdown-item danger"
+                                            onClick={handleLogout}
+                                        >
+                                            🚪 Sign Out
+                                        </button>
+
                                     </div>
-
-                                    <Link
-                                        to="/profile"
-                                        className="dropdown-item"
-                                        onClick={() => setDropdownOpen(false)}
-                                    >
-                                        👤 Profile
-                                    </Link>
-
-                                    <Link
-                                        to="/analysis"
-                                        className="dropdown-item"
-                                        onClick={() => setDropdownOpen(false)}
-                                    >
-                                        📄 Analyze Resume
-                                    </Link>
-
-                                    <button
-                                        className="dropdown-item danger"
-                                        onClick={handleLogout}
-                                    >
-                                        🚪 Sign Out
-                                    </button>
-
-                                </div>
-                            )}
-
-                        </div>
+                                )}
+                            </div>
+                        </>
                     ) : (
-                        /* Not logged in — show Login / Sign Up buttons */
+                        /* Not logged in — show Login / Sign Up buttons matching reference */
                         <>
-                            <Link to="/login" className="btn btn-ghost btn-sm">
-                                Log In
+                            <Link to="/login" className="nav-login-link">
+                                Login
                             </Link>
 
-                            <Link to="/login" className="btn btn-primary btn-sm">
+                            <Link to="/login" className="nav-signup-pill">
                                 Sign Up
                             </Link>
                         </>
@@ -240,28 +261,39 @@ function Navbar() {
 
             <div className={`mobile-nav${mobileOpen ? " open" : ""}`}>
 
-                <Link
-                    to="/"
-                    className={`nav-link${isActive("/") ? " active" : ""}`}
+                <button
+                    type="button"
+                    onClick={() => goToRoute("/")}
+                    className="nav-link nav-link-btn"
                 >
                     Home
-                </Link>
+                </button>
 
-                <Link
-                    to="/analysis"
-                    className={`nav-link${isActive("/analysis") ? " active" : ""}`}
+                <button
+                    type="button"
+                    onClick={() => goToRoute("/check_ats_score")}
+                    className="nav-link nav-link-btn"
                 >
-                    Resume
-                </Link>
+                    Check ATS Score
+                </button>
 
-                <Link
-                    to="/profile"
-                    className={`nav-link${isActive("/profile") ? " active" : ""}`}
+                <button
+                    type="button"
+                    onClick={() => goToRoute("/build_resume")}
+                    className="nav-link nav-link-btn"
+                >
+                    Build Resume
+                </button>
+
+                <button
+                    type="button"
+                    onClick={() => goToRoute("/profile")}
+                    className="nav-link nav-link-btn"
                 >
                     Profile
-                </Link>
+                </button>
 
-                <div className="navbar-actions">
+                <div className="navbar-actions" style={{ flexDirection: "column", width: "100%", gap: "10px" }}>
                     {isauthenticated ? (
                         <button
                             className="btn btn-danger btn-sm"
@@ -271,23 +303,23 @@ function Navbar() {
                             Sign Out
                         </button>
                     ) : (
-                        <>
+                        <div style={{ display: "flex", gap: "10px", width: "100%" }}>
                             <Link
                                 to="/login"
-                                className="btn btn-ghost btn-sm"
-                                style={{ flex: 1, textAlign: "center" }}
+                                className="nav-login-link"
+                                style={{ flex: 1, textAlign: "center", padding: "10px 0" }}
                             >
-                                Log In
+                                Login
                             </Link>
 
                             <Link
                                 to="/login"
-                                className="btn btn-primary btn-sm"
+                                className="nav-signup-pill"
                                 style={{ flex: 1, textAlign: "center" }}
                             >
                                 Sign Up
                             </Link>
-                        </>
+                        </div>
                     )}
                 </div>
 

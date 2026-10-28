@@ -1,6 +1,6 @@
 import { Navigate, Outlet } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
-import { DotLottieReact } from '@lottiefiles/dotlottie-react'
+import LoadingAnimation1 from "../anim/LoadingAnimation1";
 
 
 export function ProtectedRoute({ children }) {
@@ -9,17 +9,7 @@ export function ProtectedRoute({ children }) {
 
 
     if (loading) {
-
-        return (
-            <div className="loading-overlay">
-                <DotLottieReact
-                    src="https://lottie.host/fab0564c-b9fa-4f0f-b243-955fdc0ea24b/CGBHZLKVks.lottie"
-                    loop
-                    autoplay
-                />
-            </div>
-        );
-
+        return <LoadingAnimation1 />;
     }
 
 
@@ -45,17 +35,7 @@ export function PublicOnlyRoute({ children }) {
 
 
     if (loading) {
-
-        return (
-            <div className="loading-overlay">
-                <DotLottieReact
-                    src="https://lottie.host/fab0564c-b9fa-4f0f-b243-955fdc0ea24b/CGBHZLKVks.lottie"
-                    loop
-                    autoplay
-                />
-            </div>
-        );
-
+        return <LoadingAnimation1 />;
     }
 
 

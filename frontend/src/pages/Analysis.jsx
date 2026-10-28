@@ -3,7 +3,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import api from "../api/api";
 import Navbar from "../components/Navbar";
-
+import uploadResumeImage from "../assets/upload_resume.png";
 
 export default function Analysis() {
 
@@ -136,7 +136,11 @@ export default function Analysis() {
                         onClick={() => fileInputRef.current?.click()}
                     >
 
-                        <div className="upload-icon">📁</div>
+                        <img
+                            className="upload-resume-image"
+                            src={uploadResumeImage}
+                            alt="Resume upload illustration"
+                        />
 
                         <h3>
                             {dragActive
@@ -223,7 +227,6 @@ export default function Analysis() {
 
                     </div>
                 )}
-
             </div>
         </>
     );
