@@ -125,8 +125,6 @@ async def login(
 
     return {
         "message": "Login successful.",
-        "access_token": access_token,
-        "token_type": "bearer",
         "email": db_user.email,
         "user": {
             "id": str(db_user.id),
@@ -221,6 +219,7 @@ async def verify_otp(
         refresh_token=hashed_refresh_token,
         user_id=new_user.id,
         expires_at=datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRY_TIME),
+        revoked=False,
     )
 
     db.add(refresh_token_record)
@@ -237,8 +236,6 @@ async def verify_otp(
 
     return {
         "message": "Account created successfully.",
-        "access_token": access_token,
-        "token_type": "bearer",
         "email": new_user.email,
         "user": {
             "id": str(new_user.id),
@@ -265,8 +262,6 @@ async def get_current_user(
 
 from datetime import datetime, timedelta, timezone
 
-REUSE_GRACE_SECONDS = 10
-
 
 def _utcnow() -> datetime:
     """Naive UTC datetime, matching what MySQL returns."""
@@ -285,8 +280,14 @@ async def refresh_token_rotation(
     response: Response,
     db: Session = Depends(get_db),
 ):
+
     # 1. Get refresh token from cookie
     refresh_token = request.cookies.get("refresh_token")
+
+    print(
+        f"Refresh token rotation hit at {datetime.utcnow()} and {refresh_token} is the refresh token"
+    )
+
     if not refresh_token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -295,6 +296,7 @@ async def refresh_token_rotation(
 
     # 2. Hash and look up the record (row-locked to prevent double rotation)
     hashed_token = hash_refresh_token(refresh_token)
+
     record = (
         db.query(RefreshToken)
         .filter(RefreshToken.refresh_token == hashed_token)
@@ -310,32 +312,16 @@ async def refresh_token_rotation(
 
     now = _utcnow()
 
-    # 3. Reuse detection
-    if record.revoked is not None:
-        revoked_at = _to_naive_utc(record.revoked)
-        within_grace = (now - revoked_at) <= timedelta(seconds=REUSE_GRACE_SECONDS)
-
-        if not within_grace:
-            # Old token replayed outside the grace window: assume theft,
-            # kill every active refresh token for this user.
-            (
-                db.query(RefreshToken)
-                .filter(
-                    RefreshToken.user_id == record.user_id,
-                    RefreshToken.revoked.is_(None),
-                )
-                .update({RefreshToken.revoked: now}, synchronize_session=False)
-            )
-            db.commit()
-
+    # 3. Reuse / revocation detection — treat NULL and True both as invalid
+    if record.revoked is None or record.revoked is True:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Refresh token is invalid or revoked.",
         )
 
     # 4. Expiry check
-    if _to_naive_utc(record.expires_at) < now:
-        record.revoked = now
+    if record.expires_at <= now:
+        record.revoked = True
         db.commit()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -354,19 +340,20 @@ async def refresh_token_rotation(
     access_token = create_access_token(user.id, user.email)
     new_refresh_token, hashed_new_refresh_token = create_refresh_token()
 
-    # 7. Create the new record (same absolute expiry; change to now + 7 days
-    #    if you want a sliding session)
+    # 7. Create the new record — explicitly set revoked=False so it is
+    #    written to the DB correctly regardless of column default timing.
     new_record = RefreshToken(
         refresh_token=hashed_new_refresh_token,
         user_id=user.id,
         expires_at=record.expires_at,
         created_at=now,
+        revoked=False,
     )
     db.add(new_record)
     db.flush()  # populates new_record.id
 
     # 8. Revoke the old token and point it at its replacement
-    record.revoked = now
+    record.revoked = True
     record.revoked_by_id = new_record.id
 
     db.commit()
@@ -376,8 +363,6 @@ async def refresh_token_rotation(
 
     return {
         "message": "Refresh token rotated successfully.",
-        "access_token": access_token,
-        "token_type": "bearer",
         "user": {
             "id": str(user.id),
             "name": user.name,
@@ -392,16 +377,12 @@ async def refresh_token_rotation(
 async def logout(
     request: Request,
     response: Response,
-    payload: RefreshTokenRequest = None,
     db: Session = Depends(get_db),
 ):
-    refresh_token = None
-    if payload and payload.refresh_token:
-        refresh_token = payload.refresh_token
-    if not refresh_token:
-        refresh_token = request.cookies.get("refresh_token")
+    refresh_token = request.cookies.get("refresh_token")
 
     if refresh_token:
+        print("Entered the logout route ✅")
         hashed_token = hash_refresh_token(refresh_token)
         record = (
             db.query(RefreshToken)
@@ -409,8 +390,12 @@ async def logout(
             .first()
         )
         if record and not record.revoked:
-            record.revoked = datetime.utcnow()
+            record.revoked = True
             db.commit()
+        else:
+            print("Entered the logout route but not enting to db 📊")
+    else:
+        print("Unable to enter the logout route ❌")
 
     clear_auth_cookies(response, request)
     return {"message": "Logout successful."}

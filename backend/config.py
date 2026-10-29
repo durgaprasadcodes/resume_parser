@@ -155,13 +155,22 @@ def set_auth_cookies(
         value=refresh_token,
         httponly=True,
         secure=is_secure,
-        # max_age=60 * 60 * 24 * REFRESH_TOKEN_EXPIRY_TIME,
-        max_age=90,
+        max_age=60 * 60 * 24 * REFRESH_TOKEN_EXPIRY_TIME,
         samesite=samesite,
         path="/",
     )
 
-    return access_token
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        secure=is_secure,
+        max_age=60 * ACCESS_TOKEN_EXPIRY_TIME,
+        samesite=samesite,
+        path="/",
+    )
+
+    return {"message": "access and refresh tokens send to cookies"}
 
 
 def clear_auth_cookies(response: Response, request: Request = None):
@@ -174,6 +183,13 @@ def clear_auth_cookies(response: Response, request: Request = None):
 
     response.delete_cookie(
         key="refresh_token",
+        path="/",
+        secure=is_secure,
+        samesite=samesite,
+        httponly=True,
+    )
+    response.delete_cookie(
+        key="access_token",
         path="/",
         secure=is_secure,
         samesite=samesite,

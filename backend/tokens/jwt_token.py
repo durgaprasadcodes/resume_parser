@@ -28,12 +28,16 @@ def create_refresh_token():
 
 def decode_access_token(token: str) -> str:
     try:
-        payload = jwt.decode(token, SECREST_CODE, algorithms=ALGORITH)
+        # Guard: if no token cookie was sent at all
+        if not token:
+            raise ValueError("No access token provided")
+
+        payload = jwt.decode(token, SECREST_CODE, algorithms=[ALGORITH])
 
         if not payload.get("user_id"):
             raise ValueError("Invalid Access Token")
         if payload.get("type") != "access":
             raise ValueError("Invalid Token Given")
         return payload
-    except JWTError:
+    except (JWTError, Exception):
         raise ValueError("Invalid Access Token")

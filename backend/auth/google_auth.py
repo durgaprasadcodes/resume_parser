@@ -51,12 +51,13 @@ def _frontend_redirect(
     elif access_token:
         # Pass access_token and user info via URL hash fragment.
         # Hash fragments are never sent to the server, keeping the token client-side only.
-        params = urlencode({
-            "access_token": access_token,
-            "name": user_name or "",
-            "email": user_email or "",
-            "picture": user_picture or "",
-        })
+        params = urlencode(
+            {
+                "name": user_name or "",
+                "email": user_email or "",
+                "picture": user_picture or "",
+            }
+        )
         url = f"{frontend_url}/#oauth-callback?{params}"
     else:
         url = f"{frontend_url}/"

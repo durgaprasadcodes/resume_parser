@@ -10,17 +10,8 @@ def get_user_info(
     request: Request,
     db: Session = Depends(get_db),
 ):
-    # Read access token from Authorization header (Bearer scheme)
-    # Frontend stores it in localStorage and sends it as a header.
-    auth_header = request.headers.get("Authorization")
 
-    if not auth_header or not auth_header.startswith("Bearer "):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated",
-        )
-
-    access_token = auth_header.split(" ", 1)[1]
+    access_token = request.cookies.get("access_token")
 
     try:
         payload = decode_access_token(access_token)
