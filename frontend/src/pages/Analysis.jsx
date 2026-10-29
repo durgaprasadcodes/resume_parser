@@ -4,6 +4,8 @@ import remarkGfm from "remark-gfm";
 import api from "../api/api";
 import Navbar from "../components/Navbar";
 import uploadResumeImage from "../assets/upload_resume.png";
+import AtsScoreCircle from "../components/AtsScoreCircle";
+import { showSuccess, showError, extractErrorMessage } from "../lib/toast";
 
 export default function Analysis() {
 
@@ -53,6 +55,7 @@ export default function Analysis() {
                 setError("");
             } else {
                 setError("Please upload a PDF file.");
+                showError("Please upload a PDF file.");
             }
         }
     };
@@ -96,11 +99,14 @@ export default function Analysis() {
                 );
             }
 
+            showSuccess("Resume analyzed successfully!");
+
         } catch (err) {
-            setError(
+            const errorMsg =
                 err.response?.data?.detail ||
-                "Analysis failed. Please try again."
-            );
+                "Analysis failed. Please try again.";
+            showError(errorMsg);
+            setError(errorMsg);
         } finally {
             setUploading(false);
         }
@@ -227,6 +233,7 @@ export default function Analysis() {
 
                     </div>
                 )}
+                {/* <AtsScoreCircle score={60} size={200} strokeWidth={20} /> */}
             </div>
         </>
     );

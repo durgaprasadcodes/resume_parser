@@ -1,6 +1,8 @@
 import './App.css'
 import { createBrowserRouter, Outlet, RouterProvider, useLocation } from 'react-router-dom'
 import { useEffect, useState } from 'react'
+import { ToastContainer } from 'react-toastify'
+import 'react-toastify/dist/ReactToastify.css'
 import Home from './pages/Home'
 import Analysis from './pages/Analysis'
 import Profile from './pages/Profile'
@@ -15,7 +17,7 @@ import Warning from './build/warning.jsx'
 
 function RouteLoadingLayout() {
   const location = useLocation()
-  const [loadedPath, setLoadedPath] = useState(null)
+  const [loadedPath, setLoadedPath] = useState(location.pathname)
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -95,6 +97,17 @@ function App() {
   return (
     <AuthProvider>
       <RouterProvider router={router} />
+      <ToastContainer
+        position="bottom-right"
+        autoClose={3500}
+        hideProgressBar={false}
+        newestOnTop
+        closeOnClick
+        pauseOnHover
+        draggable
+        theme="dark"
+        stacked
+      />
     </AuthProvider>
   )
 }

@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-
 import api from "../api/api";
 import { useAuth } from "./AuthContext";
+import { showSuccess, showError, extractErrorMessage } from "../lib/toast";
 
 function Login() {
     const navigate = useNavigate();
@@ -70,6 +70,7 @@ function Login() {
             setLoading(true);
             window.location.assign(loginUrl.toString());
         } catch {
+            showError("Unable to start Google sign-in. Please try again.");
             setError("Unable to start Google sign-in. Please try again.");
             setLoading(false);
         }
@@ -106,15 +107,13 @@ function Login() {
             });
 
             if (response.status === 200) {
-                const {
-                    access_token,
-                    user: userData,
-                } = response.data;
+                const userData = response.data.user;
 
                 login(
-                    userData || { email: formData.email },
-                    { access_token }
+                    userData || { email: formData.email }
                 );
+
+                showSuccess("Welcome back! Signed in successfully.");
 
                 navigate("/", {
                     replace: true,
@@ -141,6 +140,7 @@ function Login() {
                 errorMsg = detail.msg;
             }
 
+            showError(errorMsg);
             setError(errorMsg);
         } finally {
             setLoading(false);
@@ -198,6 +198,8 @@ function Login() {
                     email
                 );
 
+                showSuccess("OTP sent! Check your email to verify your account.");
+
                 navigate(
                     `/otp?email=${encodeURIComponent(email)}`,
                     {
@@ -226,6 +228,7 @@ function Login() {
                 errorMsg = detail.msg;
             }
 
+            showError(errorMsg);
             setError(errorMsg);
         } finally {
             setLoading(false);

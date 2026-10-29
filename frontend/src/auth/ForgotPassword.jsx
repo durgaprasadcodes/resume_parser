@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api/api';
+import { showSuccess, showError, extractErrorMessage } from '../lib/toast';
 import "../styles/ForgotPassword.css"
 
 export default function ForgotPassword() {
@@ -32,10 +33,10 @@ export default function ForgotPassword() {
             if (response.status == 200) {
                 setShowForgotPasswordPage(false);
                 setEmail(e.target.email.value)
-                console.log("Success")
+                showSuccess("OTP sent! Check your email.");
             }
         } catch (error) {
-            console.log(error.response);
+            showError(extractErrorMessage(error, "Failed to send OTP. Please try again."));
             setShowForgotPasswordPage(true);
         }
         finally {
@@ -54,10 +55,10 @@ export default function ForgotPassword() {
             if (response.status == 200) {
                 setResetToken(response.data.reset_token);
                 setChangePassword(true);
-
+                showSuccess("OTP verified! Set your new password.");
             }
         } catch (error) {
-            console.log(error.response);
+            showError(extractErrorMessage(error, "Invalid OTP. Please try again."));
         }
         finally {
             setLoading(false)
@@ -74,10 +75,11 @@ export default function ForgotPassword() {
                 reset_token: resetToken
             });
             if (response.status == 200) {
+                showSuccess("Password changed successfully! Please sign in.");
                 navigate("/login");
             }
         } catch (error) {
-            console.log(error.response);
+            showError(extractErrorMessage(error, "Failed to change password. Please try again."));
         }
         finally {
             setLoading(false)
@@ -126,7 +128,7 @@ export default function ForgotPassword() {
                                 placeholder="Confirm your password"
                                 required
                             />
-                            <button className="fp-btn-primary" type="submit" disabled={loading}>{loading ? "Change Password" : "Change Password"}</button>
+                            <button className="fp-btn-primary" type="submit" disabled={loading}>{loading ? "Changing Password..." : "Change Password"}</button>
                         </form>
                         <button className="fp-btn-secondary" onClick={BackToLoginPage}>Back to Login</button>
                     </div>
@@ -142,7 +144,7 @@ export default function ForgotPassword() {
                                 required
                                 onChange={(e) => e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6)}
                             />
-                            <button className="fp-btn-primary" type="submit" disabled={loading}>{loading ? "Verifying OTP" : "Verify OTP"}</button>
+                            <button className="fp-btn-primary" type="submit" disabled={loading}>{loading ? "Verifying OTP..." : "Verify OTP"}</button>
                         </form>
                         <button className="fp-btn-secondary" onClick={BackToEmailEnterPage}>Enter OTP again</button>
                         <button className="fp-btn-secondary" onClick={BackToLoginPage}>Back to Login</button>

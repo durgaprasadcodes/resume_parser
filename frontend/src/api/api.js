@@ -1,107 +1,117 @@
-import axios from 'axios';
+import axios from "axios";
 
 const api = axios.create({
     baseURL: import.meta.env.VITE_API_URL,
-    withCredentials: true  // required to send the httpOnly refresh_token cookie
+    withCredentials: true, // Always send & receive HTTP-only cookies
 });
 
-/* Request Interceptor: Attach Bearer token from localStorage if available */
-api.interceptors.request.use(
-    (config) => {
-        const token = localStorage.getItem('access_token');
-        if (token) {
-            config.headers.Authorization = `Bearer ${token}`;
-        }
-        return config;
-    },
-    (error) => Promise.reject(error)
-);
+// ============================================================
+// REFRESH STATE
+// ============================================================
 
-/*
- * Response Interceptor:
- * On 401, attempt silent token refresh via /auth/refresh.
- * The refresh_token is sent automatically as an httpOnly cookie.
- * If refresh succeeds, the new access_token is stored in localStorage
- * and the original request is retried.
- * If refresh also fails, clear credentials and reject.
- */
 let isRefreshing = false;
 let failedQueue = [];
 
-const processQueue = (error, token = null) => {
+const processQueue = (error) => {
     failedQueue.forEach(({ resolve, reject }) => {
         if (error) {
             reject(error);
         } else {
-            resolve(token);
+            resolve();
         }
     });
+
     failedQueue = [];
 };
 
+// ============================================================
+// RESPONSE INTERCEPTOR (Silent Refresh on 401)
+// ============================================================
+
 api.interceptors.response.use(
-    (response) => response,
+    (response) => {
+        return response;
+    },
+
     async (error) => {
         const originalRequest = error.config;
 
-        /*
-         * Only intercept 401s, skip if we already retried
-         * or if the request is an auth setup route.
-         */
-        if (
-            error.response?.status === 401 &&
-            !originalRequest._retry &&
-            !originalRequest.url?.includes('/auth/refresh') &&
-            !originalRequest.url?.includes('/auth/login') &&
-            !originalRequest.url?.includes('/auth/register')
-        ) {
-            if (isRefreshing) {
-                return new Promise((resolve, reject) => {
-                    failedQueue.push({ resolve, reject });
-                })
-                    .then((token) => {
-                        if (token) {
-                            originalRequest.headers.Authorization = `Bearer ${token}`;
-                        }
-                        return api(originalRequest);
-                    })
-                    .catch((err) => Promise.reject(err));
-            }
-
-            originalRequest._retry = true;
-            isRefreshing = true;
-
-            try {
-                // Refresh token is in the httpOnly cookie — no body needed
-                const response = await api.post('/auth/refresh');
-
-                const { access_token, user: userData } = response.data;
-
-                if (access_token) {
-                    localStorage.setItem('access_token', access_token);
-                    api.defaults.headers.common.Authorization = `Bearer ${access_token}`;
-                    originalRequest.headers.Authorization = `Bearer ${access_token}`;
-                }
-
-                // Update stored user data if provided
-                if (userData) {
-                    localStorage.setItem('user', JSON.stringify(userData));
-                }
-
-                processQueue(null, access_token);
-                return api(originalRequest);
-            } catch (refreshError) {
-                processQueue(refreshError, null);
-                // Clean up invalid session from browser storage
-                localStorage.removeItem('access_token');
-                localStorage.removeItem('user');
-                return Promise.reject(refreshError);
-            } finally {
-                isRefreshing = false;
-            }
+        // If no response or no config attached, reject immediately
+        if (!error.response || !originalRequest) {
+            return Promise.reject(error);
         }
 
-        return Promise.reject(error);
+        // Only handle HTTP 401 Unauthorized
+        if (error.response.status !== 401) {
+            return Promise.reject(error);
+        }
+
+        // Never attempt to refresh on auth setup/lifecycle endpoints
+        const requestUrl = originalRequest.url || "";
+        const isAuthLifecycleRequest =
+            requestUrl.includes("/auth/refresh") ||
+            requestUrl.includes("/auth/login") ||
+            requestUrl.includes("/auth/register") ||
+            requestUrl.includes("/auth/logout");
+
+        if (isAuthLifecycleRequest) {
+            return Promise.reject(error);
+        }
+
+        // Prevent infinite loops if retried request still returns 401
+        if (originalRequest._retry) {
+            return Promise.reject(error);
+        }
+
+        originalRequest._retry = true;
+
+        // If another request is currently refreshing the token, queue this request
+        if (isRefreshing) {
+            return new Promise((resolve, reject) => {
+                failedQueue.push({ resolve, reject });
+            }).then(() => {
+                // Browser automatically sends the refreshed HTTP-only cookie
+                return api(originalRequest);
+            });
+        }
+
+        isRefreshing = true;
+
+        try {
+            console.log("🔄 Access token expired. Attempting silent refresh...");
+
+            const refreshBaseUrl = import.meta.env.VITE_API_URL || "";
+            await axios.post(
+                `${refreshBaseUrl}/auth/refresh`,
+                {},
+                {
+                    withCredentials: true, // HTTP-only refresh_token cookie sent automatically
+                }
+            );
+
+            console.log("✅ Token successfully refreshed via HTTP-only cookie");
+
+            // Resolve all queued requests
+            processQueue(null);
+
+            // Retry the original request
+            return api(originalRequest);
+
+        } catch (refreshError) {
+            console.error("❌ Silent token refresh failed:", refreshError);
+
+            // Reject all queued requests
+            processQueue(refreshError);
+
+            // Clean up stored user metadata and notify AuthContext to clear state
+            localStorage.removeItem("user");
+            window.dispatchEvent(new Event("auth:unauthorized"));
+
+            return Promise.reject(refreshError);
+
+        } finally {
+            isRefreshing = false;
+        }
     }
 );
 

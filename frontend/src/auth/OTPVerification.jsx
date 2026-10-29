@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import api from "../api/api";
 import { useAuth } from "./AuthContext";
+import { showSuccess, showError } from "../lib/toast";
 
 
 function OTPVerification() {
@@ -115,12 +116,12 @@ function OTPVerification() {
             if (response.status === 200) {
                 sessionStorage.removeItem("pendingRegistrationEmail");
 
-                const { access_token, user: userData } = response.data;
-                login(userData || { email }, { access_token });
+                const userData = response.data.user;
+                login(userData || { email });
 
-                setMessage(
-                    response.data.message || "Account verified!"
-                );
+                const successMsg = response.data.message || "Account verified!";
+                showSuccess(successMsg);
+                setMessage(successMsg);
 
                 /* Short delay so the user sees the success message */
                 setTimeout(() => {
@@ -138,6 +139,7 @@ function OTPVerification() {
             } else if (detail?.msg) {
                 errorMsg = detail.msg;
             }
+            showError(errorMsg);
             setError(errorMsg);
         } finally {
             setLoading(false);

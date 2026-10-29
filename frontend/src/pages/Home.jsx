@@ -263,6 +263,14 @@ export default function Home() {
                                 </svg>
                                 Netflix
                             </span>
+                            <span className="trust-logo-item">
+                                <img
+                                    src={"https://cdn.21st.dev/assets/mirror/b9/b93fa7942be639a1dae60194ff12141145d7d9fd59581582d6ff23335755f19c.svg"}
+                                    style={{ width: 24, height: 24 }}
+                                    alt="OpenAI"
+                                />
+                                OpenAI
+                            </span>
                         </div>
                     </div>
                 </section>

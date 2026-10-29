@@ -3,151 +3,147 @@ import {
     useContext,
     useEffect,
     useState,
-    useCallback
+    useCallback,
 } from "react";
 
+import { showSuccess } from "../lib/toast";
 import api from "../api/api";
 
 const AuthContext = createContext(null);
 
-
-
 export function AuthProvider({ children }) {
 
-    /*
-     * Initialize user from localStorage to prevent auth flicker on reload.
-     */
+    // ============================================================
+    // 1. INSTANT / OPTIMISTIC UI RENDERING (from localStorage)
+    // ============================================================
+
     const [user, setUser] = useState(() => {
         try {
-            const saved = localStorage.getItem("user");
-            return saved ? JSON.parse(saved) : null;
-        } catch {
+            const savedUser = localStorage.getItem("user");
+            return savedUser ? JSON.parse(savedUser) : null;
+        } catch (error) {
+            console.error("Failed to parse user from localStorage:", error);
             return null;
         }
     });
 
-    const [loading, setLoading] = useState(true);
+    // Loading is initialized to false because user state is ready synchronously
+    const [loading, setLoading] = useState(false);
 
-    /**
-     * Handle OAuth callback from Google.
-     * After Google redirects back, the URL hash contains:
-     *   /#oauth-callback?access_token=...&name=...&email=...&picture=...
-     * We parse this, store in localStorage, then clean up the URL.
-     */
+    // ============================================================
+    // 2. GOOGLE OAUTH CALLBACK
+    // ============================================================
     const handleOAuthCallback = useCallback(() => {
         const hash = window.location.hash;
-        if (!hash.startsWith("#oauth-callback?")) return false;
 
-        const queryStr = hash.slice("#oauth-callback?".length);
-        const params = new URLSearchParams(queryStr);
+        if (!hash.startsWith("#oauth-callback?")) {
+            return false;
+        }
 
-        const access_token = params.get("access_token");
+        const queryString = hash.slice("#oauth-callback?".length);
+        const params = new URLSearchParams(queryString);
+
         const name = params.get("name");
         const email = params.get("email");
         const picture = params.get("picture");
 
-        if (!access_token) return false;
+        if (!email) {
+            return false;
+        }
 
-        const userData = { name, email, picture };
+        const userData = {
+            name,
+            email,
+            picture,
+        };
 
-        localStorage.setItem("access_token", access_token);
-        localStorage.setItem("user", JSON.stringify(userData));
         setUser(userData);
+        localStorage.setItem("user", JSON.stringify(userData));
 
-        // Navigate to home, replacing history so the OAuth URL can't be revisited
-        window.location.replace(window.location.origin + "/");
+        // Clean up OAuth information from URL hash
+        window.history.replaceState(
+            null,
+            "",
+            window.location.pathname
+        );
 
         return true;
     }, []);
 
+    // ============================================================
+    // 3. BACKGROUND AUTH CHECK (/auth/me)
+    // ============================================================
     const checkAuth = useCallback(async () => {
-        // If the URL contains OAuth callback data, process it first
-        if (handleOAuthCallback()) {
-            setLoading(false);
-            return;
-        }
+        handleOAuthCallback();
 
-        const storedToken = localStorage.getItem("access_token");
-        const storedUser = localStorage.getItem("user");
-
-        // If we already have both token and user data, we're good
-        if (storedToken && storedUser) {
-            setLoading(false);
-            return;
-        }
-
-        // If we have a token but no user data, fetch /auth/me
-        if (storedToken) {
-            try {
-                const response = await api.get("/auth/me");
-                if (response.status === 200) {
-                    setUser(response.data);
-                    localStorage.setItem("user", JSON.stringify(response.data));
-                }
-            } catch (error) {
-                if (error.response?.status === 401) {
-                    localStorage.removeItem("access_token");
-                    localStorage.removeItem("user");
-                    setUser(null);
-                }
-            } finally {
-                setLoading(false);
-            }
-            return;
-        }
-
-        // No token — try a silent refresh via httpOnly cookie
         try {
-            const response = await api.post("/auth/refresh");
-            if (response.status === 200) {
-                const { access_token, user: userData } = response.data;
-                if (access_token) {
-                    localStorage.setItem("access_token", access_token);
-                }
-                if (userData) {
-                    localStorage.setItem("user", JSON.stringify(userData));
-                    setUser(userData);
-                }
+            const response = await api.get("/auth/me");
+            if (response.status === 200 && response.data) {
+                const userData = response.data;
+                setUser(userData);
+                localStorage.setItem("user", JSON.stringify(userData));
             }
-        } catch {
-            // No valid refresh token either — user is logged out
-            setUser(null);
+        } catch (error) {
+            if (error.response?.status === 401) {
+                console.warn("Session expired or invalid, logging out.");
+                localStorage.removeItem("user");
+                setUser(null);
+            } else {
+                console.error("Background auth check failed:", error);
+            }
         } finally {
-            setLoading(false);
         }
     }, [handleOAuthCallback]);
 
+    // ============================================================
+    // 4. SYNC ON MOUNT & GLOBAL AUTH LOGOUT LISTENER
+    // ============================================================
     useEffect(() => {
         checkAuth();
     }, [checkAuth]);
 
-    const isauthenticated = !!user;
+    useEffect(() => {
+        // Triggered by axios interceptor if a refresh attempt fails on any request
+        const handleUnauthorized = () => {
+            localStorage.removeItem("user");
+            setUser(null);
+        };
 
-    /**
-     * Called after a successful login/register/OTP-verify.
-     * Stores the access_token and user data in localStorage.
-     */
-    const login = useCallback((userData, tokens = {}) => {
-        if (tokens.access_token) {
-            localStorage.setItem("access_token", tokens.access_token);
-        }
+        window.addEventListener("auth:unauthorized", handleUnauthorized);
+        return () => window.removeEventListener("auth:unauthorized", handleUnauthorized);
+    }, []);
+
+    // ============================================================
+    // 5. LOGIN
+    // ============================================================
+    const login = useCallback((userData) => {
         if (userData) {
-            localStorage.setItem("user", JSON.stringify(userData));
             setUser(userData);
+            localStorage.setItem("user", JSON.stringify(userData));
         }
     }, []);
 
-    const logout = async () => {
+    // ============================================================
+    // 6. LOGOUT
+    // ============================================================
+    const logout = useCallback(async () => {
         try {
-            await api.post("/auth/logout");
+            const response = await api.post("/auth/logout");
+            setLoading(true);
+            if (response.status === 200) {
+                showSuccess("Logged out successfully");
+            }
         } catch (error) {
             console.error("Logout failed:", error);
         } finally {
-            localStorage.removeItem("access_token");
+            // Clear local user metadata & state
             localStorage.removeItem("user");
             setUser(null);
+            setLoading(false);
         }
-    };
+    }, []);
+
+    const isauthenticated = !!user;
 
     return (
         <AuthContext.Provider
@@ -157,7 +153,7 @@ export function AuthProvider({ children }) {
                 loading,
                 login,
                 logout,
-                checkAuth
+                checkAuth,
             }}
         >
             {children}

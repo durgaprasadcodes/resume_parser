@@ -200,22 +200,23 @@ function Navbar() {
                                             className="dropdown-item"
                                             onClick={() => setDropdownOpen(false)}
                                         >
-                                            👤 Profile
+                                            <i className="fa-solid fa-user"></i> Profile
                                         </Link>
 
                                         <Link
-                                            to="/analysis"
+                                            to="/check_ats_score"
                                             className="dropdown-item"
                                             onClick={() => setDropdownOpen(false)}
                                         >
-                                            📄 Analyze Resume
+                                            <i className="fa-solid fa-chart-simple"></i> Check Ats Score
+
                                         </Link>
 
                                         <button
                                             className="dropdown-item danger"
                                             onClick={handleLogout}
                                         >
-                                            🚪 Sign Out
+                                            <i className="fa-solid fa-right-from-bracket"></i> Sign Out
                                         </button>
 
                                     </div>
@@ -266,6 +267,7 @@ function Navbar() {
                     onClick={() => goToRoute("/")}
                     className="nav-link nav-link-btn"
                 >
+                    <i className="fa-solid fa-house" style={{ marginRight: 3.5 }}></i>
                     Home
                 </button>
 
@@ -274,7 +276,7 @@ function Navbar() {
                     onClick={() => goToRoute("/check_ats_score")}
                     className="nav-link nav-link-btn"
                 >
-                    Check ATS Score
+                    <i className="fa-solid fa-chart-simple" style={{ marginRight: 3 }}></i> Check ATS Score
                 </button>
 
                 <button
@@ -282,6 +284,7 @@ function Navbar() {
                     onClick={() => goToRoute("/build_resume")}
                     className="nav-link nav-link-btn"
                 >
+                    <i className="fa-solid fa-file-lines" style={{ marginRight: 4 }}></i>
                     Build Resume
                 </button>
 
@@ -290,7 +293,7 @@ function Navbar() {
                     onClick={() => goToRoute("/profile")}
                     className="nav-link nav-link-btn"
                 >
-                    Profile
+                    <i className="fa-solid fa-user" style={{ marginRight: 3 }}> </i> Profile
                 </button>
 
                 <div className="navbar-actions" style={{ flexDirection: "column", width: "100%", gap: "10px" }}>
@@ -300,7 +303,7 @@ function Navbar() {
                             onClick={handleLogout}
                             style={{ width: "100%" }}
                         >
-                            Sign Out
+                            <i className="fa-solid fa-right-from-bracket"></i>  Sign Out
                         </button>
                     ) : (
                         <div style={{ display: "flex", gap: "10px", width: "100%" }}>
