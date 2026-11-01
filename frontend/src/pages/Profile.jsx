@@ -1,6 +1,7 @@
 import { useAuth } from "../auth/AuthContext";
 import { Link } from "react-router-dom";
 import Navbar from "../components/Navbar";
+import "../styles/profile.css";
 
 
 /* ---- Default User icon SVG (fallback when no picture) ---- */

@@ -1,4 +1,3 @@
-import './App.css'
 import { createBrowserRouter, Outlet, RouterProvider, useLocation } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { ToastContainer } from 'react-toastify'

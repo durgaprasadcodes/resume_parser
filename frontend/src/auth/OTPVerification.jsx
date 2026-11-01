@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import api from "../api/api";
 import { useAuth } from "./AuthContext";
 import { showSuccess, showError } from "../lib/toast";
+import "../styles/OTPVerification.css";
 
 
 function OTPVerification() {

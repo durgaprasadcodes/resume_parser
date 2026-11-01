@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import hirelenseLogo from "../assets/hirelense.png";
+import "../styles/Navbar.css";
 
 function Navbar() {
 
