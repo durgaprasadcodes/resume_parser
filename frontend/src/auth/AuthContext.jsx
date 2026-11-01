@@ -14,7 +14,7 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
 
     // ============================================================
-    // 1. INSTANT / OPTIMISTIC UI RENDERING (from localStorage)
+    // Keep cached user details available while the server validates the session.
     // ============================================================
 
     const [user, setUser] = useState(() => {
@@ -27,7 +27,6 @@ export function AuthProvider({ children }) {
         }
     });
 
-    // Loading is initialized to false because user state is ready synchronously
     const [loading, setLoading] = useState(false);
 
     // ============================================================
@@ -82,16 +81,18 @@ export function AuthProvider({ children }) {
                 const userData = response.data;
                 setUser(userData);
                 localStorage.setItem("user", JSON.stringify(userData));
+            } else {
+                localStorage.removeItem("user");
+                setUser(null);
             }
         } catch (error) {
             if (error.response?.status === 401) {
                 console.warn("Session expired or invalid, logging out.");
-                localStorage.removeItem("user");
-                setUser(null);
             } else {
                 console.error("Background auth check failed:", error);
             }
-        } finally {
+            localStorage.removeItem("user");
+            setUser(null);
         }
     }, [handleOAuthCallback]);
 
@@ -127,9 +128,9 @@ export function AuthProvider({ children }) {
     // 6. LOGOUT
     // ============================================================
     const logout = useCallback(async () => {
+        setLoading(true);
         try {
             const response = await api.post("/auth/logout");
-            setLoading(true);
             if (response.status === 200) {
                 showSuccess("Logged out successfully");
             }

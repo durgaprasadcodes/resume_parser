@@ -21,6 +21,7 @@ from config import (
     verify_password,
     hash_refresh_token,
     create_reset_token,
+    invalidate_user,
     ACCESS_TOKEN_EXPIRY_TIME,
     REFRESH_TOKEN_EXPIRY_TIME,
 )
@@ -248,16 +249,8 @@ async def verify_otp(
 
 
 @router.get("/me")
-async def get_current_user(
-    user: Users = Depends(get_user_info),
-):
-    return {
-        "id": str(user.id),
-        "name": user.name,
-        "email": user.email,
-        "picture": user.picture,
-        "is_verified": user.is_verified,
-    }
+async def get_current_user(user: dict = Depends(get_user_info)):
+    return user
 
 
 from datetime import datetime, timedelta, timezone
@@ -351,7 +344,8 @@ async def refresh_token_rotation(
     )
     db.add(new_record)
     db.flush()  # populates new_record.id
-
+    invalidate_user(user.id)  
+    
     # 8. Revoke the old token and point it at its replacement
     record.revoked = True
     record.revoked_by_id = new_record.id
@@ -392,7 +386,9 @@ async def logout(
         if record and not record.revoked:
             record.revoked = True
             db.commit()
+            invalidate_user(record.user_id)
         else:
+            invalidate_user(record.user_id)
             print("Entered the logout route but not enting to db 📊")
     else:
         print("Unable to enter the logout route ❌")

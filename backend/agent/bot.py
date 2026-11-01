@@ -60,6 +60,7 @@ LLM = ChatGroq(
     model="qwen/qwen3.8-27b",
     temperature=0.3,
     max_retries=5,
+    # max_tokens=1000,
     api_key=GROQ_API_KEY,
 )
 
@@ -73,8 +74,7 @@ MAX_FILE_SIZE = 10 * 1024 * 1024
 async def upload_resume(request: Request, file: UploadFile = File(...)):
 
     file_extension = file.filename.split(".")
-    
-    if len(file_extension) == 1 :
+    if len(file_extension) == 1:
         raise HTTPException(
             status_code=400,
             detail=f"please upload a valid pdf file ",
@@ -107,8 +107,7 @@ async def upload_resume(request: Request, file: UploadFile = File(...)):
 
         ONE_YEAR = 60 * 60 * 24 * 365
 
-        signed = supabase.storage.from_("resumes").create_signed_url(path, ONE_YEAR )
-
+        signed = supabase.storage.from_("resumes").create_signed_url(path, ONE_YEAR)
 
         with NamedTemporaryFile(delete=False, suffix=".pdf") as temp_file:
             temp_file.write(file_bytes)
@@ -120,15 +119,14 @@ async def upload_resume(request: Request, file: UploadFile = File(...)):
             LLM.with_structured_output(Resume), resume_text, demo_job_description
         )
 
-        return {    
+        return {
             "message": "File uploaded successfully",
             "filename": path,
             "url": signed["signedURL"],
             "result": result,
         }
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
-        if file_path:
-            Path(file_path).unlink(missing_ok=True)
+        Path(file_path).unlink(missing_ok=True)

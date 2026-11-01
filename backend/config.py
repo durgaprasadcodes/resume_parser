@@ -197,6 +197,34 @@ def clear_auth_cookies(response: Response, request: Request = None):
     )
 
 
+import json
+
+USER_CACHE_TTL = 600
+
+
+def get_cached_user(user_id) -> None:
+
+    user_key = f"_USER_{user_id}"
+    user = REDIS_CLIENT.get(user_key)
+    if user:
+        print("CASHED USER TAKEN FROM REDIS")
+        return json.loads(user)
+    return None
+
+
+def cashe_user(user: dict) -> None:
+    REDIS_CLIENT.set(
+        f"_USER_{user["id"]}",
+        json.dumps(user),
+        ex=USER_CACHE_TTL,
+    )
+    print("CASHING THE USER TO REDIS")
+
+
+def invalidate_user(user_id) -> None:
+    REDIS_CLIENT.delete(f"_USER_{user_id}")
+
+
 ats_score_description = """
 Compute the ATS compatibility score (integer 0-100) of the resume against the Job Description (JD). Be strict, evidence-based and deterministic: the same normalized resume + same JD must always give exactly the same score. Never vary the score because of wording, randomness, reasoning order, re-uploads, repeated evaluation or explanation differences. No subjective impressions: score only resume evidence vs JD requirements.
 
@@ -229,7 +257,9 @@ POSITIVES (specific, resume-based, explain WHY each strengthens the application;
 LENGTH LIMITS (keep the response compact and always complete): at most 6 negatives and 5 positives, each at most 2 sentences; project_value at most 2 sentences; empty list when there is no work experience. Respond only with the structured output."""
 
 
-demo_job_description = """
+demo_job_description = "Machine Learning internship only for regression dont need any Deep Learing ,but must need Rag side for 1 month without any experinece (0) with react.js for frotend at nexlayer.pvt"
+
+"""
     As a Machine Learning intern at NayePankh Foundation, you will have the opportunity to apply your expertise in Machine Learning, Python, Data Analytics, R Programming, Data Science, Natural Language Processing (NLP), Deep Learning, and Artificial Intelligence to drive innovative solutions in the field of education. Your responsibilities will include:
 
 1. Developing and implementing machine learning models to enhance educational tools and resources.
