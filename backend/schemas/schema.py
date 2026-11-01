@@ -156,6 +156,6 @@ class Resume(BaseModel):
     )
     certifications: Certifications
     resume_quality: Classification
-    impreovements: list[Improvement] = Field(
+    improvements: list[Improvement] = Field(
         description="Prioritized and actionable improvements that would increase the resume's alignment with the job description"
     )
