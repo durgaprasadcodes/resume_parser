@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import api from "../api/api";
@@ -6,13 +6,15 @@ import Navbar from "../components/Navbar";
 import uploadResumeImage from "../assets/upload_resume.png";
 import AtsScoreCircle from "../components/AtsScoreCircle";
 import { showSuccess, showError, extractErrorMessage } from "../lib/toast";
+import "../styles/Analysis.css";
 
 export default function Analysis() {
 
     const [file, setFile] = useState(null);
     const [dragActive, setDragActive] = useState(false);
     const [uploading, setUploading] = useState(false);
-    const [llmResponse, setLlmResponse] = useState("");
+    const [filename, SetFileName] = useState("");
+    const [result, SetResult] = useState("");
     const [error, setError] = useState("");
 
     const fileInputRef = useRef(null);
@@ -71,42 +73,41 @@ export default function Analysis() {
 
 
     const handleAnalyze = async () => {
-
         if (!file) {
             setError("Please select a resume file first.");
             return;
         }
 
         setError("");
-        setLlmResponse("");
         setUploading(true);
 
         try {
             const formData = new FormData();
             formData.append("file", file);
 
-            const response = await api.post("/resume/analyze", formData, {
-                headers: { "Content-Type": "multipart/form-data" }
-            });
+            const response = await api.post(
+                "/hirelense/upload_resume",
+                formData
+            );
 
-            if (response.data?.analysis) {
-                setLlmResponse(response.data.analysis);
-            } else if (typeof response.data === "string") {
-                setLlmResponse(response.data);
-            } else {
-                setLlmResponse(
-                    JSON.stringify(response.data, null, 2)
-                );
-            }
+            const parsedResult = JSON.parse(response.data.result);
+
+            SetResult(parsedResult);
+            SetFileName(response.data.filename);
 
             showSuccess("Resume analyzed successfully!");
 
         } catch (err) {
+            console.error("Resume analysis error:", err);
+
             const errorMsg =
                 err.response?.data?.detail ||
+                err.message ||
                 "Analysis failed. Please try again.";
+
             showError(errorMsg);
             setError(errorMsg);
+
         } finally {
             setUploading(false);
         }
@@ -119,121 +120,110 @@ export default function Analysis() {
 
             <div className="page-container analysis-page">
 
-                {/* Upload Section */}
-                <div className="upload-section">
+                {
+                    !result ? (
+                        <div className="upload-section">
 
-                    <h1>📄 Resume Analysis</h1>
+                            <h1><i className="fa-solid  fa-cloud-arrow-up"></i> Upload Your Resume</h1>
 
-                    <p>
-                        Upload your resume and let our AI provide
-                        a comprehensive breakdown and improvement tips.
-                    </p>
-
-
-                    {/* Dropzone */}
-                    <div
-                        className={
-                            `upload-dropzone${dragActive ? " active" : ""}`
-                        }
-                        onDragEnter={handleDrag}
-                        onDragLeave={handleDrag}
-                        onDragOver={handleDrag}
-                        onDrop={handleDrop}
-                        onClick={() => fileInputRef.current?.click()}
-                    >
-
-                        <img
-                            className="upload-resume-image"
-                            src={uploadResumeImage}
-                            alt="Resume upload illustration"
-                        />
-
-                        <h3>
-                            {dragActive
-                                ? "Drop your resume here"
-                                : "Drag & drop your resume here"
-                            }
-                        </h3>
-
-                        <p>or click to browse — PDF only, max 10MB</p>
-
-                        <input
-                            ref={fileInputRef}
-                            type="file"
-                            accept=".pdf"
-                            onChange={handleFileChange}
-                        />
-
-                    </div>
+                            <p>
+                                Upload your resume and let our AI provide
+                                a comprehensive breakdown and improvement tips.
+                            </p>
 
 
-                    {/* Selected file info */}
-                    {file && (
-                        <div className="file-info">
-                            <span>
-                                📄 {file.name} ({(file.size / 1024).toFixed(1)} KB)
-                            </span>
-
-                            <button onClick={removeFile}>
-                                ✕ Remove
-                            </button>
-                        </div>
-                    )}
-
-
-                    {/* Error */}
-                    {error && (
-                        <div
-                            className="error-message"
-                            style={{ marginTop: 16 }}
-                        >
-                            {error}
-                        </div>
-                    )}
-
-
-                    {/* Action buttons */}
-                    <div className="upload-actions">
-
-                        <button
-                            className="btn btn-primary"
-                            onClick={handleAnalyze}
-                            disabled={!file || uploading}
-                        >
-                            {uploading ? (
-                                <>
-                                    <span className="spinner" />
-                                    Analyzing...
-                                </>
-                            ) : (
-                                "🔍 Analyze Resume"
-                            )}
-                        </button>
-
-                    </div>
-
-                </div>
-
-
-                {/* Analysis Result */}
-                {llmResponse && (
-                    <div className="analysis-result">
-
-                        <h2>
-                            ✨ Analysis Results
-                        </h2>
-
-                        <div className="markdown-body">
-                            <ReactMarkdown
-                                remarkPlugins={[remarkGfm]}
+                            {/* Dropzone */}
+                            <div
+                                className={
+                                    `upload-dropzone${dragActive ? " active" : ""}`
+                                }
+                                onDragEnter={handleDrag}
+                                onDragLeave={handleDrag}
+                                onDragOver={handleDrag}
+                                onDrop={handleDrop}
+                                onClick={() => fileInputRef.current?.click()}
                             >
-                                {llmResponse}
-                            </ReactMarkdown>
-                        </div>
 
-                    </div>
-                )}
-                {/* <AtsScoreCircle score={60} size={200} strokeWidth={20} /> */}
+                                <img
+                                    className="upload-resume-image"
+                                    src={uploadResumeImage}
+                                    alt="Resume upload illustration"
+                                />
+
+                                <h3>
+                                    {dragActive
+                                        ? "Drop your resume here"
+                                        : "Drag & drop your resume here"
+                                    }
+                                </h3>
+
+                                <p>or click to browse — PDF only, max 10MB</p>
+
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    accept=".pdf"
+                                    onChange={handleFileChange}
+                                />
+
+                            </div>
+
+
+                            {/* Selected file info */}
+                            {file && (
+                                <div className="file-info">
+                                    <span>
+                                        📄 {file.name} ({(file.size / 1024).toFixed(1)} KB)
+                                    </span>
+
+                                    <button onClick={removeFile}>
+                                        ✕ Remove
+                                    </button>
+                                </div>
+                            )}
+
+
+                            {/* Error */}
+                            {error && (
+                                <div
+                                    className="error-message"
+                                    style={{ marginTop: 16 }}
+                                >
+                                    {error}
+                                </div>
+                            )}
+
+
+                            {/* Action buttons */}
+                            <div className="upload-actions">
+
+                                <button
+                                    className="btn btn-primary"
+                                    onClick={handleAnalyze}
+                                    disabled={!file || uploading}
+                                >
+                                    {uploading ? (
+                                        <>
+                                            <span className="spinner" />
+                                            Analyzing...
+                                        </>
+                                    ) : (
+                                        "🔍 Analyze Resume"
+                                    )}
+                                </button>
+
+                            </div>
+
+                        </div>
+                    ) : (
+                        <div className="result">
+                            <AtsScoreCircle score={result?.ats_score || 0} size={200} strokeWidth={20} />
+                            <b> Name : {filename}</b>
+                        </div>
+                    )
+
+                }
+
             </div>
         </>
     );

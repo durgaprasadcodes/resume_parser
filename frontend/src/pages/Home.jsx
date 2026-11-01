@@ -441,7 +441,7 @@ export default function Home() {
                         <img className="resumeanalysis" src={resumeAnalysis} alt="" />
 
                         <Link
-                            to={isauthenticated ? "/analysis" : "/login"}
+                            to={isauthenticated ? "/check_ats_score" : "/login"}
                             className="btn-hero-dark"
                             style={{ padding: "16px 36px" }}
                         >
@@ -484,9 +484,9 @@ export default function Home() {
                         <div className="scroll-reveal" data-scroll-reveal>
                             <div className="footer-col-header">App</div>
                             <ul className="footer-links-list">
-                                <li><Link to="/analysis">Resume Analyzer</Link></li>
+                                <li><Link to="/check_ats_score">Resume Analyzer</Link></li>
                                 <li><Link to="/profile">Candidate Profile</Link></li>
-                                <li><Link to="/login">Sign In / Register</Link></li>
+                                {/* <li><Link to="/login">Sign In / Register</Link></li> */}
                             </ul>
                         </div>
 
@@ -503,7 +503,7 @@ export default function Home() {
 
                     <div className="footer-bottom-bar scroll-reveal" data-scroll-reveal>
                         <span>© {new Date().getFullYear()} Hirelense.ai. All rights reserved.</span>
-                        <span>Designed with Impeccable Craft • White &amp; Sky Blue Theme</span>
+                        {/* <span>Designed with Impeccable Craft • White &amp; Sky Blue Theme</span> */}
                     </div>
                 </div>
             </footer>

@@ -1,0 +1,829 @@
+/* =========================================================
+   HIRELENSE — RESUME ANALYSIS
+   Premium SaaS Upload Interface
+   ========================================================= */
+
+.analysis-page {
+    min-height: calc(100vh - 72px);
+    padding: 52px 32px 80px;
+    color: #171717;
+}
+
+.analysis-page * {
+    box-sizing: border-box;
+}
+
+
+/* =========================================================
+   UPLOAD SECTION
+   ========================================================= */
+
+.upload-section {
+    width: min(900px, 100%);
+    margin: 0 auto;
+
+    text-align: center;
+}
+
+
+/* =========================================================
+   HEADING
+   ========================================================= */
+
+.upload-section>h1 {
+    margin: 0;
+
+    color: #111111;
+
+    font-size: clamp(32px, 4vw, 46px);
+    line-height: 1.08;
+
+    font-weight: 750;
+    letter-spacing: -1.8px;
+}
+
+.upload-section>h1 i {
+    margin-right: 11px;
+
+    color: #dc2626;
+
+    font-size: 0.78em;
+}
+
+.upload-section>p {
+    width: min(650px, 100%);
+
+    margin: 16px auto 34px;
+
+    color: #737373;
+
+    font-size: 15px;
+    line-height: 1.7;
+}
+
+
+/* =========================================================
+   PREMIUM DROPZONE
+   ========================================================= */
+
+.upload-dropzone {
+    position: relative;
+
+    width: 100%;
+    height: 470px;
+
+    overflow: hidden;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+
+    padding: 34px;
+
+    background: #ffffff;
+
+    border: 1.5px dashed #d4d4d4;
+    border-radius: 22px;
+
+    cursor: pointer;
+
+    transition:
+        border-color 180ms ease,
+        box-shadow 180ms ease,
+        transform 180ms ease,
+        background-color 180ms ease;
+}
+
+.upload-dropzone::before {
+    content: "";
+
+    position: absolute;
+    inset: 0;
+
+    pointer-events: none;
+
+    background:
+        radial-gradient(circle at 50% 25%,
+            rgba(220, 38, 38, 0.055),
+            transparent 45%);
+}
+
+.upload-dropzone:hover {
+    border-color: #ef4444;
+
+    background: #fffafa;
+
+    box-shadow:
+        0 18px 45px rgba(0, 0, 0, 0.07),
+        0 0 0 4px rgba(220, 38, 38, 0.04);
+
+    transform: translateY(-2px);
+}
+
+.upload-dropzone.active {
+    border: 2px solid #dc2626;
+
+    background: #fff7f7;
+
+    box-shadow:
+        0 0 0 5px rgba(220, 38, 38, 0.08),
+        0 20px 50px rgba(220, 38, 38, 0.10);
+
+    transform: scale(1.005);
+}
+
+
+/* =========================================================
+   UPLOAD IMAGE
+   80% VISUAL COVERAGE
+   ========================================================= */
+
+.upload-resume-image {
+    position: absolute;
+
+    top: 12px;
+    left: 50%;
+
+    transform: translateX(-50%);
+
+    width: 80%;
+    height: 80%;
+
+    max-width: 680px;
+
+    object-fit: contain;
+
+    object-position: center;
+
+    pointer-events: none;
+
+    /* opacity: 0.96; */
+
+    transition:
+        transform 250ms ease,
+        opacity 250ms ease;
+}
+
+.upload-dropzone:hover .upload-resume-image {
+    transform: translateX(-50%) translateY(-5px);
+
+    opacity: 1;
+}
+
+.upload-dropzone.active .upload-resume-image {
+    transform: translateX(-50%) scale(1.015);
+
+    opacity: 1;
+}
+
+
+/* =========================================================
+   DROPZONE CONTENT
+   ========================================================= */
+
+.upload-dropzone h3,
+.upload-dropzone p {
+    position: relative;
+    z-index: 2;
+}
+
+
+/* =========================================================
+   DROPZONE TITLE
+   ========================================================= */
+
+.upload-dropzone h3 {
+    margin: 0 0 7px;
+
+    color: #171717;
+
+    font-size: 19px;
+    font-weight: 700;
+
+    letter-spacing: -0.3px;
+}
+
+.upload-dropzone h3::after {
+    content: "";
+    display: block;
+
+    width: 28px;
+    height: 2px;
+
+    margin: 9px auto 0;
+
+    background: #dc2626;
+
+    border-radius: 999px;
+}
+
+
+/* =========================================================
+   DROPZONE DESCRIPTION
+   ========================================================= */
+
+.upload-dropzone p {
+    margin: 0;
+
+    color: #737373;
+
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.upload-dropzone p::first-line {
+    color: #525252;
+}
+
+
+/* =========================================================
+   FILE INPUT
+   ========================================================= */
+
+.upload-dropzone input {
+    display: none;
+}
+
+
+/* =========================================================
+   RED UPLOAD INDICATOR
+   ========================================================= */
+
+.upload-dropzone::after {
+    content: "UPLOAD RESUME";
+
+    position: absolute;
+
+    top: 20px;
+    right: 20px;
+
+    z-index: 3;
+
+    padding: 7px 11px;
+
+    border-radius: 7px;
+
+    background: #dc2626;
+    color: #ffffff;
+
+    font-size: 9px;
+    font-weight: 800;
+
+    letter-spacing: 1px;
+
+    box-shadow:
+        0 5px 15px rgba(220, 38, 38, 0.18);
+}
+
+
+/* =========================================================
+   SELECTED FILE
+   ========================================================= */
+
+.file-info {
+    width: 100%;
+
+    margin-top: 16px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+
+    padding: 14px 16px;
+
+    background: #ffffff;
+
+    border: 1px solid #e5e5e5;
+
+    border-radius: 12px;
+
+    box-shadow:
+        0 5px 18px rgba(0, 0, 0, 0.04);
+
+    text-align: left;
+
+    animation: file-enter 220ms ease;
+}
+
+@keyframes file-enter {
+    from {
+        opacity: 0;
+        transform: translateY(5px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.file-info span {
+    min-width: 0;
+
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    color: #404040;
+
+    font-size: 14px;
+    font-weight: 550;
+}
+
+.file-info button {
+    flex-shrink: 0;
+
+    padding: 6px 9px;
+
+    border: 0;
+    border-radius: 6px;
+
+    background: transparent;
+
+    color: #dc2626;
+
+    font-size: 13px;
+    font-weight: 650;
+
+    cursor: pointer;
+
+    transition:
+        background-color 150ms ease,
+        color 150ms ease;
+}
+
+.file-info button:hover {
+    background: #fef2f2;
+
+    color: #b91c1c;
+}
+
+
+/* =========================================================
+   ERROR
+   ========================================================= */
+
+.error-message {
+    width: 100%;
+
+    margin-top: 16px;
+
+    padding: 13px 15px;
+
+    border: 1px solid #fecaca;
+    border-radius: 10px;
+
+    background: #fef2f2;
+
+    color: #b91c1c;
+
+    font-size: 13px;
+    font-weight: 550;
+
+    text-align: left;
+}
+
+
+/* =========================================================
+   ACTION AREA
+   ========================================================= */
+
+.upload-actions {
+    display: flex;
+    justify-content: center;
+
+    margin-top: 22px;
+}
+
+
+/* =========================================================
+   RED PRIMARY BUTTON
+   ========================================================= */
+
+.btn-primary {
+    min-width: 220px;
+    min-height: 50px;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+
+    padding: 0 24px;
+
+    border: 1px solid #b91c1c;
+    border-radius: 10px;
+
+    background: #dc2626;
+    color: #ffffff;
+
+    font-size: 14px;
+    font-weight: 700;
+
+    cursor: pointer;
+
+    box-shadow:
+        0 7px 18px rgba(220, 38, 38, 0.18);
+
+    transition:
+        background-color 160ms ease,
+        border-color 160ms ease,
+        box-shadow 160ms ease,
+        transform 160ms ease;
+}
+
+.btn-primary:hover:not(:disabled) {
+    background: #b91c1c;
+    border-color: #991b1b;
+
+    box-shadow:
+        0 10px 24px rgba(220, 38, 38, 0.24);
+
+    transform: translateY(-2px);
+}
+
+.btn-primary:active:not(:disabled) {
+    transform: translateY(0);
+
+    box-shadow:
+        0 4px 10px rgba(220, 38, 38, 0.15);
+}
+
+.btn-primary:disabled {
+    opacity: 0.5;
+
+    cursor: not-allowed;
+
+    box-shadow: none;
+}
+
+
+/* =========================================================
+   LOADING SPINNER
+   ========================================================= */
+
+.spinner {
+    width: 16px;
+    height: 16px;
+
+    border: 2px solid rgba(255, 255, 255, 0.35);
+
+    border-top-color: #ffffff;
+
+    border-radius: 50%;
+
+    animation: analysis-spin 650ms linear infinite;
+}
+
+@keyframes analysis-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+
+/* =========================================================
+   RESULT PAGE
+   ========================================================= */
+
+.analysis-result {
+    width: min(1180px, 100%);
+
+    margin: 0 auto;
+}
+
+
+/* =========================================================
+   RESULT HEADER
+   ========================================================= */
+
+.result-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+
+    gap: 32px;
+
+    margin-bottom: 32px;
+}
+
+.result-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+
+    margin-bottom: 10px;
+
+    color: #dc2626;
+
+    font-size: 10px;
+    font-weight: 800;
+
+    letter-spacing: 1.2px;
+}
+
+.result-header h1 {
+    margin: 0;
+
+    color: #111111;
+
+    font-size: clamp(30px, 4vw, 42px);
+
+    font-weight: 750;
+
+    letter-spacing: -1.5px;
+}
+
+.result-header p {
+    max-width: 620px;
+
+    margin: 12px 0 0;
+
+    color: #737373;
+
+    font-size: 15px;
+    line-height: 1.7;
+}
+
+
+/* =========================================================
+   RESUME FILE BADGE
+   ========================================================= */
+
+.resume-file {
+    min-width: 280px;
+
+    display: flex;
+    align-items: center;
+    gap: 13px;
+
+    padding: 14px 16px;
+
+    background: #ffffff;
+
+    border: 1px solid #e5e5e5;
+
+    border-radius: 12px;
+
+    box-shadow:
+        0 5px 18px rgba(0, 0, 0, 0.04);
+}
+
+.resume-file>i {
+    width: 38px;
+    height: 38px;
+
+    display: grid;
+    place-items: center;
+
+    border-radius: 9px;
+
+    background: #fef2f2;
+
+    color: #dc2626;
+}
+
+.resume-file div {
+    min-width: 0;
+
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.resume-file span {
+    color: #a3a3a3;
+
+    font-size: 10px;
+    font-weight: 750;
+
+    text-transform: uppercase;
+    letter-spacing: 0.7px;
+}
+
+.resume-file strong {
+    max-width: 200px;
+
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    color: #292929;
+
+    font-size: 13px;
+}
+
+
+/* =========================================================
+   RESULT GRID
+   ========================================================= */
+
+.result-grid {
+    display: grid;
+
+    grid-template-columns:
+        minmax(300px, 0.8fr) minmax(400px, 1.2fr);
+
+    gap: 20px;
+}
+
+
+/* =========================================================
+   RESULT CARDS
+   ========================================================= */
+
+.score-card,
+.summary-card {
+    min-height: 400px;
+
+    padding: 25px;
+
+    background: #ffffff;
+
+    border: 1px solid #e5e5e5;
+
+    border-radius: 16px;
+
+    box-shadow:
+        0 8px 28px rgba(0, 0, 0, 0.045);
+}
+
+.card-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+}
+
+.card-label {
+    display: block;
+
+    margin-bottom: 5px;
+
+    color: #a3a3a3;
+
+    font-size: 10px;
+    font-weight: 800;
+
+    letter-spacing: 1.1px;
+}
+
+.card-heading h2 {
+    margin: 0;
+
+    color: #202020;
+
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.card-heading>i {
+    width: 36px;
+    height: 36px;
+
+    display: grid;
+    place-items: center;
+
+    border-radius: 9px;
+
+    background: #fef2f2;
+
+    color: #dc2626;
+
+    font-size: 14px;
+}
+
+
+/* =========================================================
+   SCORE
+   ========================================================= */
+
+.score-wrapper {
+    min-height: 280px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.score-status {
+    display: flex;
+    justify-content: center;
+}
+
+.score-status span {
+    padding: 7px 12px;
+
+    border-radius: 100px;
+
+    background: #fef2f2;
+
+    color: #dc2626;
+
+    font-size: 12px;
+    font-weight: 650;
+}
+
+
+/* =========================================================
+   SUMMARY
+   ========================================================= */
+
+.summary-card p {
+    margin-top: 28px;
+
+    color: #626262;
+
+    font-size: 15px;
+
+    line-height: 1.8;
+}
+
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 850px) {
+
+    .analysis-page {
+        padding: 40px 20px 60px;
+    }
+
+    .upload-dropzone {
+        height: 430px;
+    }
+
+    .upload-resume-image {
+        width: 82%;
+        height: 78%;
+    }
+
+    .result-header {
+        flex-direction: column;
+    }
+
+    .resume-file {
+        width: 100%;
+    }
+
+    .result-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+
+@media (max-width: 520px) {
+
+    .analysis-page {
+        padding: 30px 15px 50px;
+    }
+
+    .upload-section>h1 {
+        font-size: 30px;
+    }
+
+    .upload-dropzone {
+        height: 400px;
+
+        padding: 24px 18px;
+
+        border-radius: 17px;
+    }
+
+    .upload-resume-image {
+        width: 90%;
+        height: 75%;
+    }
+
+    .upload-dropzone::after {
+        top: 14px;
+        right: 14px;
+
+        font-size: 8px;
+    }
+
+    .file-info {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .file-info button {
+        width: 100%;
+
+        padding: 9px;
+
+        border: 1px solid #f0f0f0;
+        border-radius: 8px;
+    }
+
+    .btn-primary {
+        width: 100%;
+    }
+
+    .score-card,
+    .summary-card {
+        padding: 20px;
+    }
+}
