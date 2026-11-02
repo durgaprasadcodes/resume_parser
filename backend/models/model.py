@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, ForeignKey, DateTime, Boolean, JSON
+from sqlalchemy import Column, String, ForeignKey, DateTime, Boolean, JSON, Text
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from database import BASE
@@ -36,7 +36,8 @@ class Resumes(BASE):
     __tablename__ = "resumes"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    resume_context = Column(JSONB, nullable=False)
+    resume_name = Column(String, nullable=False)
+    resume_url = Column(Text)
     user_id = Column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
     )

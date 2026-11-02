@@ -1,15 +1,19 @@
 import os
 import json
+import uuid
 from pathlib import Path
+from database import get_db
 from dotenv import load_dotenv
 from schemas.schema import Resume
 from langchain_groq import ChatGroq
 from models.model import Users, Resumes
 from tempfile import NamedTemporaryFile
+from sqlalchemy.orm import Session
 from langchain_community.document_loaders import PyMuPDFLoader
-from config import limiter, demo_job_description, SYSTEM_PROMPT, supabase
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from fastapi import UploadFile, File, status, HTTPException, APIRouter, Request
+from config import limiter, demo_job_description, SYSTEM_PROMPT, supabase
+from fastapi import UploadFile, File, status, HTTPException, APIRouter, Request, Depends
+from tokens.get_user_info import get_user_info
 
 load_dotenv()
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
@@ -71,62 +75,102 @@ MAX_FILE_SIZE = 10 * 1024 * 1024
 
 @agent_router.post("/upload_resume")
 @limiter.limit("3/minutes")
-async def upload_resume(request: Request, file: UploadFile = File(...)):
-
-    file_extension = file.filename.split(".")
-    if len(file_extension) == 1:
+async def upload_resume(
+    request: Request,
+    user_id: str,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_user_info),
+):
+    if user_id != current_user["id"]:
         raise HTTPException(
-            status_code=400,
-            detail=f"please upload a valid pdf file ",
+            status_code=403, detail="User ID does not match authenticated user"
         )
 
-    if file_extension[1] != "pdf":
-        raise HTTPException(
-            status_code=400,
-            detail=f"invalid file type, {file_extension[1]}'s are not Allowed ",
-        )
+    file_path = None
+
+    filename = file.filename or ""
+    extension = Path(filename).suffix.lower()
+
+    if extension != ".pdf":
+        raise HTTPException(status_code=400, detail="Only PDF files are allowed")
+
+    if file.size is None:
+        raise HTTPException(status_code=400, detail="Unable to determine file size")
 
     if file.size > MAX_FILE_SIZE:
-        raise HTTPException(
-            status_code=413,
-            detail=(
-                f"file size exceeds 10MB, upload file size is {file.size/ (1024 * 1024):.2f}MB"
-            ),
-        )
+        raise HTTPException(status_code=413, detail=f"File size exceeds 10MB")
 
     try:
-
         file_bytes = await file.read()
-        path = file.filename
 
-        response = supabase.storage.from_("resumes").upload(
-            path=path,
-            file=file_bytes,
-            file_options={"content-type": file.content_type, "upsert": "true"},
-        )
-
-        ONE_YEAR = 60 * 60 * 24 * 365
-
-        signed = supabase.storage.from_("resumes").create_signed_url(path, ONE_YEAR)
+        if not file_bytes.startswith(b"%PDF"):
+            raise HTTPException(status_code=400, detail="Invalid PDF file")
 
         with NamedTemporaryFile(delete=False, suffix=".pdf") as temp_file:
             temp_file.write(file_bytes)
             file_path = temp_file.name
 
-        resume_text = split_documents(file_path=file_path)
+        resume_text = split_documents(file_path)
 
         result = analyze_resume_vs_jd_groq(
             LLM.with_structured_output(Resume), resume_text, demo_job_description
         )
 
+        storage_path = f"{user_id}/{uuid.uuid4()}.pdf"
+
+        supabase.storage.from_("resumes").upload(
+            path=storage_path,
+            file=file_bytes,
+            file_options={
+                "content-type": "application/pdf",
+                "upsert": False,
+            },
+        )
+
+        ONE_YEAR = 60 * 60 * 24 * 365
+
+        signed = supabase.storage.from_("resumes").create_signed_url(
+            storage_path, ONE_YEAR
+        )
+
+        supabase_url = signed["signedURL"]
+
+        resume_name = Path(filename).stem
+
+        resume_record = (
+            db.query(Resumes)
+            .filter(Resumes.resume_name == resume_name, Resumes.user_id == user_id)
+            .first()
+        )
+
+        if resume_record:
+            resume_record.resume_url = supabase_url
+        else:
+            resume_record = Resumes(
+                resume_name=resume_name, resume_url=supabase_url, user_id=user_id
+            )
+            db.add(resume_record)
+
+        db.commit()
+        db.refresh(resume_record)
+
         return {
             "message": "File uploaded successfully",
-            "filename": path,
-            "url": signed["signedURL"],
+            "filename": filename,
+            "url": supabase_url,
             "result": result,
         }
 
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except HTTPException:
+        raise
+
+    except Exception:
+        db.rollback()
+        raise HTTPException(
+            status_code=500, detail="Failed to upload and analyze resume"
+        )
+
     finally:
-        Path(file_path).unlink(missing_ok=True)
+        if file_path:
+            Path(file_path).unlink(missing_ok=True)
