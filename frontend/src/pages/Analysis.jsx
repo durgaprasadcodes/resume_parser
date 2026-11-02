@@ -1,13 +1,13 @@
-import { useRef, useState, useMemo } from "react";
+import { useRef, useState, useMemo, useCallback, useEffect } from "react";
 import api from "../api/api";
 import { useAuth } from "../auth/AuthContext";
 import Navbar from "../components/Navbar";
 import uploadResumeImage from "../assets/upload_resume.png";
 import AtsScoreCircle from "../components/AtsScoreCircle";
 import { showSuccess, showError } from "../lib/toast";
+import { saveAnalysis, loadAnalysis, clearAnalysis } from "../lib/analysisStorage";
 import "../styles/Analysis.css";
 
-// Chart.js imports
 import {
     Chart as ChartJS,
     ArcElement,
@@ -15,38 +15,96 @@ import {
     Legend,
     CategoryScale,
     LinearScale,
-    BarElement,
+    PointElement,
+    LineElement,
+    Filler,
     Title,
 } from "chart.js";
-import { Doughnut, Bar } from "react-chartjs-2";
+import { Doughnut, Line } from "react-chartjs-2";
 
-// Register Chart.js components
 ChartJS.register(
     ArcElement,
     Tooltip,
     Legend,
     CategoryScale,
     LinearScale,
-    BarElement,
+    PointElement,
+    LineElement,
+    Filler,
     Title
 );
 
 // ============================================================================
-// HELPER SUBCOMPONENTS (Clean & modular within Analysis.jsx)
+// HELPERS
 // ============================================================================
 
-function StatCard({ icon, label, value, subtext, accentColor = "default" }) {
+const clamp = (n, min, max) => Math.min(Math.max(n, min), max);
+
+function getScoreTone(score) {
+    if (score >= 80) return "tone-excellent";
+    if (score >= 65) return "tone-strong";
+    if (score >= 50) return "tone-moderate";
+    return "tone-risk";
+}
+
+// Creates a vertical gradient for the line-chart fill, reading the chart's own canvas
+function makeGradient(ctx, chartArea, from, to) {
+    if (!chartArea) return from;
+    const g = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+    g.addColorStop(0, from);
+    g.addColorStop(1, to);
+    return g;
+}
+
+// ============================================================================
+// SUBCOMPONENTS
+// ============================================================================
+
+// Card that tilts toward the cursor for a subtle 3D feel
+function TiltCard({ children, className = "", intensity = 8 }) {
+    const ref = useRef(null);
+
+    const handleMove = (e) => {
+        const el = ref.current;
+        if (!el) return;
+        const rect = el.getBoundingClientRect();
+        const px = (e.clientX - rect.left) / rect.width - 0.5;
+        const py = (e.clientY - rect.top) / rect.height - 0.5;
+        el.style.setProperty("--ry", `${px * intensity}deg`);
+        el.style.setProperty("--rx", `${-py * intensity}deg`);
+        el.style.setProperty("--mx", `${(px + 0.5) * 100}%`);
+        el.style.setProperty("--my", `${(py + 0.5) * 100}%`);
+    };
+
+    const handleLeave = () => {
+        const el = ref.current;
+        if (!el) return;
+        el.style.setProperty("--ry", "0deg");
+        el.style.setProperty("--rx", "0deg");
+    };
+
     return (
-        <div className={`kpi-card kpi-${accentColor}`}>
-            <div className="kpi-icon-wrap">
+        <div
+            ref={ref}
+            className={`tilt-card ${className}`}
+            onMouseMove={handleMove}
+            onMouseLeave={handleLeave}
+        >
+            <div className="tilt-inner">{children}</div>
+        </div>
+    );
+}
+
+function StatCard({ icon, label, value, subtext, accent = "cyan" }) {
+    return (
+        <TiltCard className={`kpi-card accent-${accent}`}>
+            <div className="kpi-icon">
                 <i className={icon} aria-hidden="true" />
             </div>
-            <div className="kpi-body">
-                <span className="kpi-label">{label}</span>
-                <span className="kpi-value">{value}</span>
-                {subtext && <span className="kpi-subtext">{subtext}</span>}
-            </div>
-        </div>
+            <span className="kpi-label">{label}</span>
+            <span className="kpi-value">{value}</span>
+            {subtext && <span className="kpi-subtext">{subtext}</span>}
+        </TiltCard>
     );
 }
 
@@ -68,90 +126,81 @@ function SectionHeader({ eyebrow, title, icon, action }) {
 function ProjectCard({ project, index }) {
     const data = project?.projects || {};
     const score = project?.final_score ?? data?.score ?? 0;
-
-    let scoreClass = "score-pill-neutral";
-    if (score >= 80) scoreClass = "score-pill-success";
-    else if (score >= 60) scoreClass = "score-pill-warning";
-    else if (score > 0) scoreClass = "score-pill-danger";
+    const tone = getScoreTone(score);
 
     return (
-        <div className="project-card">
+        <TiltCard className="project-card" intensity={6}>
             <div className="project-card-header">
                 <div className="project-title-area">
-                    <span className="project-index">#{index + 1}</span>
+                    <span className="project-index">{String(index + 1).padStart(2, "0")}</span>
                     <h4 className="project-name">{data.name || "Untitled Project"}</h4>
                 </div>
-                <div className={`project-score-badge ${scoreClass}`}>
+                <div className={`score-ring ${tone}`}>
                     <span className="score-num">{score}</span>
-                    <span className="score-total">/100</span>
                 </div>
             </div>
 
             {data.description && (
-                <div className="project-card-block">
+                <div className="project-block">
                     <span className="block-label">Overview & Architecture</span>
                     <p className="block-text">{data.description}</p>
                 </div>
             )}
 
             {data.project_value && (
-                <div className="project-card-block project-value-block">
+                <div className="project-block project-value">
                     <span className="block-label">
                         <i className="fa-solid fa-chart-line" /> Why This Project Matters
                     </span>
                     <p className="block-text">{data.project_value}</p>
                 </div>
             )}
-        </div>
+        </TiltCard>
     );
 }
 
 function RecommendationCard({ improvement, index }) {
     const priority = (improvement?.priority || "MEDIUM").toUpperCase();
-    let priorityClass = "priority-medium";
-    let priorityIcon = "fa-solid fa-triangle-exclamation";
-
-    if (priority === "HIGH") {
-        priorityClass = "priority-high";
-        priorityIcon = "fa-solid fa-circle-exclamation";
-    } else if (priority === "LOW") {
-        priorityClass = "priority-low";
-        priorityIcon = "fa-solid fa-circle-info";
-    }
+    const level = priority === "HIGH" ? "high" : priority === "LOW" ? "low" : "medium";
+    const icon =
+        level === "high"
+            ? "fa-solid fa-circle-exclamation"
+            : level === "low"
+                ? "fa-solid fa-circle-info"
+                : "fa-solid fa-triangle-exclamation";
 
     return (
-        <div className={`recommendation-card ${priorityClass}`}>
-            <div className="rec-top-bar">
+        <TiltCard className={`rec-card rec-${level}`} intensity={4}>
+            <div className="rec-top">
                 <div className="rec-badges">
-                    <span className={`rec-priority-tag ${priorityClass}`}>
-                        <i className={priorityIcon} /> {priority} PRIORITY
+                    <span className={`rec-priority rec-${level}`}>
+                        <i className={icon} /> {priority}
                     </span>
                     {improvement?.area && (
-                        <span className="rec-area-tag">
+                        <span className="rec-area">
                             <i className="fa-solid fa-folder" /> {improvement.area}
                         </span>
                     )}
                 </div>
-                <span className="rec-index">Step 0{index + 1}</span>
+                <span className="rec-step">STEP {String(index + 1).padStart(2, "0")}</span>
             </div>
 
-            <div className="rec-body">
-                <h4 className="rec-problem">{improvement?.problem || "Identified Opportunity"}</h4>
-                {improvement?.reason && (
-                    <div className="rec-reason-box">
-                        <span className="rec-reason-label">Impact Analysis & Why It Matters:</span>
-                        <p className="rec-reason-text">{improvement.reason}</p>
-                    </div>
-                )}
-            </div>
-        </div>
+            <h4 className="rec-problem">{improvement?.problem || "Identified Opportunity"}</h4>
+
+            {improvement?.reason && (
+                <div className="rec-reason">
+                    <span className="rec-reason-label">Impact Analysis</span>
+                    <p>{improvement.reason}</p>
+                </div>
+            )}
+        </TiltCard>
     );
 }
 
 function EmptyState({ icon = "fa-solid fa-inbox", title, message }) {
     return (
-        <div className="dashboard-empty-state">
-            <div className="empty-icon-wrap">
+        <div className="empty-state">
+            <div className="empty-icon">
                 <i className={icon} aria-hidden="true" />
             </div>
             <h4 className="empty-title">{title}</h4>
@@ -166,66 +215,57 @@ function EmptyState({ icon = "fa-solid fa-inbox", title, message }) {
 
 export default function Analysis() {
     const { user } = useAuth();
+
+    // Restore a previously saved report on mount
+    const saved = useMemo(() => loadAnalysis(), []);
+
     const [file, setFile] = useState(null);
     const [dragActive, setDragActive] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [downloading, setDownloading] = useState(false);
-    const [filename, setFilename] = useState("");
-    const [filepath, setFilepath] = useState("");
-    const [result, setResult] = useState(null);
+    const [filename, setFilename] = useState(saved?.filename || "");
+    const [filepath, setFilepath] = useState(saved?.filepath || "");
+    const [result, setResult] = useState(saved?.result || null);
     const [error, setError] = useState("");
 
     const fileInputRef = useRef(null);
 
     // --------------------------------------------------
-    // FILE UPLOAD HANDLERS
+    // FILE HANDLERS
     // --------------------------------------------------
+    const acceptFile = useCallback((f) => {
+        if (f && f.type === "application/pdf") {
+            setFile(f);
+            setError("");
+            return true;
+        }
+        const msg = "Please upload a PDF file.";
+        setError(msg);
+        showError(msg);
+        return false;
+    }, []);
+
     const handleDrag = (e) => {
         e.preventDefault();
         e.stopPropagation();
-
-        if (e.type === "dragenter" || e.type === "dragover") {
-            setDragActive(true);
-        } else if (e.type === "dragleave") {
-            setDragActive(false);
-        }
+        if (e.type === "dragenter" || e.type === "dragover") setDragActive(true);
+        else if (e.type === "dragleave") setDragActive(false);
     };
 
     const handleDrop = (e) => {
         e.preventDefault();
         e.stopPropagation();
         setDragActive(false);
-
-        const droppedFile = e.dataTransfer.files?.[0];
-
-        if (droppedFile && droppedFile.type === "application/pdf") {
-            setFile(droppedFile);
-            setError("");
-        } else {
-            setError("Please upload a PDF file.");
-            showError("Please upload a PDF file.");
-        }
+        acceptFile(e.dataTransfer.files?.[0]);
     };
 
     const handleFileChange = (e) => {
-        const selectedFile = e.target.files?.[0];
-
-        if (selectedFile) {
-            if (selectedFile.type === "application/pdf") {
-                setFile(selectedFile);
-                setError("");
-            } else {
-                setError("Please upload a PDF file.");
-                showError("Please upload a PDF file.");
-            }
-        }
+        acceptFile(e.target.files?.[0]);
     };
 
     const removeFile = () => {
         setFile(null);
-        if (fileInputRef.current) {
-            fileInputRef.current.value = "";
-        }
+        if (fileInputRef.current) fileInputRef.current.value = "";
     };
 
     const handleReset = () => {
@@ -234,30 +274,26 @@ export default function Analysis() {
         setError("");
         setFilename("");
         setFilepath("");
-        if (fileInputRef.current) {
-            fileInputRef.current.value = "";
-        }
+        clearAnalysis();
+        if (fileInputRef.current) fileInputRef.current.value = "";
     };
 
     const handleDownload = async () => {
         if (!filepath) return;
-
         setDownloading(true);
         try {
             const response = await fetch(filepath);
-            if (!response.ok) {
-                throw new Error(`Download failed (${response.status}).`);
-            }
+            if (!response.ok) throw new Error(`Download failed (${response.status}).`);
 
             const blob = await response.blob();
-            const downloadUrl = URL.createObjectURL(blob);
+            const url = URL.createObjectURL(blob);
             const link = document.createElement("a");
-            link.href = downloadUrl;
+            link.href = url;
             link.download = filename || "Resume.pdf";
             document.body.appendChild(link);
             link.click();
             link.remove();
-            window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
+            window.setTimeout(() => URL.revokeObjectURL(url), 1000);
         } catch (err) {
             console.error("Resume download error:", err);
             showError("Could not download the resume. Please try again.");
@@ -271,11 +307,10 @@ export default function Analysis() {
             setError("Please select a resume file first.");
             return;
         }
-
         if (!user?.id) {
-            const errorMsg = "Your session could not be verified. Please sign in again.";
-            setError(errorMsg);
-            showError(errorMsg);
+            const msg = "Your session could not be verified. Please sign in again.";
+            setError(msg);
+            showError(msg);
             return;
         }
 
@@ -290,68 +325,68 @@ export default function Analysis() {
                 params: { user_id: user.id },
             });
 
-            // Supports both JSON string and parsed object formats
-            const parsedResult =
+            const parsed =
                 typeof response.data.result === "string"
                     ? JSON.parse(response.data.result)
                     : response.data.result;
 
-            setResult(parsedResult);
-            setFilename(response.data.filename || file.name || "Resume.pdf");
-            setFilepath(response.data.url);
+            const newFilename = response.data.filename || file.name || "Resume.pdf";
+            const newFilepath = response.data.url;
+
+            setResult(parsed);
+            setFilename(newFilename);
+            setFilepath(newFilepath);
+
+            // Persist so the report survives a refresh; cleared on logout
+            saveAnalysis({ result: parsed, filename: newFilename, filepath: newFilepath });
+
             showSuccess("Resume analyzed successfully!");
         } catch (err) {
             console.error("Resume analysis error:", err);
-
-            const errorMsg =
-                err.response?.data?.detail ||
-                err.message ||
-                "Analysis failed. Please try again.";
-
-            showError(errorMsg);
-            setError(errorMsg);
+            const msg =
+                err.response?.data?.detail || err.message || "Analysis failed. Please try again.";
+            showError(msg);
+            setError(msg);
         } finally {
             setUploading(false);
         }
     };
 
     // --------------------------------------------------
-    // DYNAMIC DERIVED DATA FOR DASHBOARD
+    // DERIVED DATA
     // --------------------------------------------------
     const atsScore = result?.ats_score ?? 0;
 
     const atsInterpretation = useMemo(() => {
-        if (atsScore >= 80) {
+        if (atsScore >= 80)
             return {
                 label: "Excellent Match",
-                toneClass: "status-excellent",
+                tone: "tone-excellent",
                 description:
-                    "Your resume demonstrates exceptional alignment with target technical roles. Key core competencies, robust project implementations, and professional standards are prominently validated.",
+                    "Exceptional alignment with target technical roles. Core competencies, project depth and professional standards are clearly validated.",
             };
-        } else if (atsScore >= 65) {
+        if (atsScore >= 65)
             return {
                 label: "Strong Match",
-                toneClass: "status-strong",
+                tone: "tone-strong",
                 description:
-                    "Your resume shows strong foundational alignment with key job requirements. Addressing targeted keyword deficiencies and refining project metrics will elevate it into top candidate pools.",
+                    "Solid foundational alignment with key requirements. Closing keyword gaps and quantifying project outcomes will move you into top candidate pools.",
             };
-        } else if (atsScore >= 50) {
+        if (atsScore >= 50)
             return {
                 label: "Moderate Match",
-                toneClass: "status-moderate",
+                tone: "tone-moderate",
                 description:
-                    "Relevant qualifications were detected, but noticeable gaps exist in required tech stack coverage, quantified project outcomes, or structured experience.",
+                    "Relevant qualifications detected, but gaps remain in tech stack coverage, quantified outcomes and structured experience.",
             };
-        }
         return {
             label: "Needs Improvement",
-            toneClass: "status-needs-work",
+            tone: "tone-risk",
             description:
-                "Significant gaps identified against standard ATS parsing benchmarks. Substantial structural reorganization, skill alignment, and project depth enhancements are recommended.",
+                "Significant gaps against standard ATS parsing benchmarks. Structural reorganization, skill alignment and project depth need attention.",
         };
     }, [atsScore]);
 
-    // KPI Metrics calculation
     const matchedSkills = useMemo(
         () => (Array.isArray(result?.skills?.matched) ? result.skills.matched : []),
         [result]
@@ -367,17 +402,21 @@ export default function Analysis() {
         [result]
     );
 
+    const projectScores = useMemo(
+        () => projectsList.map((p) => p?.final_score ?? p?.projects?.score ?? 0),
+        [projectsList]
+    );
+
     const projectAverageScore = useMemo(() => {
-        if (!projectsList.length) return 0;
-        const total = projectsList.reduce((sum, p) => {
-            const val = p?.final_score ?? p?.projects?.score ?? 0;
-            return sum + val;
-        }, 0);
-        return Math.round(total / projectsList.length);
-    }, [projectsList]);
+        if (!projectScores.length) return 0;
+        return Math.round(projectScores.reduce((a, b) => a + b, 0) / projectScores.length);
+    }, [projectScores]);
 
     const certificationsList = useMemo(
-        () => (Array.isArray(result?.certifications?.certificates) ? result.certifications.certificates : []),
+        () =>
+            Array.isArray(result?.certifications?.certificates)
+                ? result.certifications.certificates
+                : [],
         [result]
     );
     const certScore = result?.certifications?.final_score ?? 0;
@@ -388,11 +427,17 @@ export default function Analysis() {
     );
 
     const positivesList = useMemo(
-        () => (Array.isArray(result?.resume_quality?.positives) ? result.resume_quality.positives : []),
+        () =>
+            Array.isArray(result?.resume_quality?.positives)
+                ? result.resume_quality.positives
+                : [],
         [result]
     );
     const negativesList = useMemo(
-        () => (Array.isArray(result?.resume_quality?.negatives) ? result.resume_quality.negatives : []),
+        () =>
+            Array.isArray(result?.resume_quality?.negatives)
+                ? result.resume_quality.negatives
+                : [],
         [result]
     );
 
@@ -402,23 +447,21 @@ export default function Analysis() {
     );
 
     // --------------------------------------------------
-    // CHART CONFIGURATIONS (Chart.js)
+    // CHART CONFIGS
     // --------------------------------------------------
     const skillsDoughnutData = useMemo(() => {
         const matched = matchedSkills.length;
         const unmatched = unmatchedSkills.length;
         const total = matched + unmatched;
-
         return {
-            labels: ["Matched Skills", "Unmatched Skills"],
+            labels: ["Matched", "Missing"],
             datasets: [
                 {
                     data: total === 0 ? [1, 0] : [matched, unmatched],
-                    backgroundColor: total === 0 ? ["#e2e8f0", "#cbd5e1"] : ["#16a34a", "#ef4444"],
-                    hoverBackgroundColor: total === 0 ? ["#cbd5e1", "#94a3b8"] : ["#15803d", "#dc2626"],
-                    borderColor: "#ffffff",
-                    borderWidth: 3,
-                    hoverOffset: 4,
+                    backgroundColor: total === 0 ? ["#1e293b", "#1e293b"] : ["#22d3ee", "#f43f5e"],
+                    borderColor: "#0b1120",
+                    borderWidth: 4,
+                    hoverOffset: 6,
                 },
             ],
         };
@@ -427,98 +470,124 @@ export default function Analysis() {
     const skillsDoughnutOptions = {
         responsive: true,
         maintainAspectRatio: false,
-        cutout: "72%",
+        cutout: "74%",
+        animation: { animateRotate: true, duration: 1100 },
         plugins: {
-            legend: {
-                display: false,
-            },
+            legend: { display: false },
             tooltip: {
-                backgroundColor: "#0f172a",
-                titleColor: "#ffffff",
-                bodyColor: "#f1f5f9",
-                padding: 10,
-                cornerRadius: 8,
+                backgroundColor: "rgba(2, 6, 23, 0.92)",
+                titleColor: "#e2e8f0",
+                bodyColor: "#f8fafc",
+                borderColor: "rgba(34, 211, 238, 0.35)",
+                borderWidth: 1,
+                padding: 12,
+                cornerRadius: 10,
                 callbacks: {
-                    label: function (context) {
-                        const count = context.raw || 0;
+                    label: (ctx) => {
                         const total = matchedSkills.length + unmatchedSkills.length;
-                        const pct = total > 0 ? Math.round((count / total) * 100) : 0;
-                        return ` ${context.label}: ${count} (${pct}%)`;
+                        const pct = total > 0 ? Math.round((ctx.raw / total) * 100) : 0;
+                        return ` ${ctx.label}: ${ctx.raw} (${pct}%)`;
                     },
                 },
             },
         },
     };
 
-    const projectBarData = useMemo(() => {
-        const labels = projectsList.map(
-            (p, idx) => p?.projects?.name || `Project ${idx + 1}`
-        );
-        const scores = projectsList.map(
-            (p) => p?.final_score ?? p?.projects?.score ?? 0
-        );
-
+    // Line chart: project scores with a gradient area fill
+    const projectLineData = useMemo(() => {
+        const labels = projectsList.map((p, i) => {
+            const name = p?.projects?.name || `Project ${i + 1}`;
+            return name.length > 18 ? name.slice(0, 16) + "…" : name;
+        });
         return {
             labels,
             datasets: [
                 {
-                    label: "ATS Project Score",
-                    data: scores,
-                    backgroundColor: scores.map((s) =>
-                        s >= 80 ? "#0284c7" : s >= 65 ? "#0ea5e9" : "#f59e0b"
-                    ),
-                    borderRadius: 6,
-                    borderSkipped: false,
-                    maxBarThickness: 42,
+                    label: "Project score",
+                    data: projectScores,
+                    borderColor: "#22d3ee",
+                    borderWidth: 3,
+                    tension: 0.42,
+                    fill: true,
+                    backgroundColor: (context) => {
+                        const { chart } = context;
+                        return makeGradient(
+                            chart.ctx,
+                            chart.chartArea,
+                            "rgba(34, 211, 238, 0.45)",
+                            "rgba(34, 211, 238, 0.00)"
+                        );
+                    },
+                    pointBackgroundColor: "#0b1120",
+                    pointBorderColor: "#22d3ee",
+                    pointBorderWidth: 2,
+                    pointRadius: 5,
+                    pointHoverRadius: 8,
+                    pointHoverBackgroundColor: "#22d3ee",
+                },
+                {
+                    label: "Average",
+                    data: projectScores.map(() => projectAverageScore),
+                    borderColor: "rgba(168, 85, 247, 0.8)",
+                    borderDash: [6, 6],
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    tension: 0,
+                    fill: false,
                 },
             ],
         };
-    }, [projectsList]);
+    }, [projectsList, projectScores, projectAverageScore]);
 
-    const projectBarOptions = {
+    const projectLineOptions = {
         responsive: true,
         maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        animation: { duration: 1200, easing: "easeOutQuart" },
         scales: {
             y: {
                 beginAtZero: true,
                 max: 100,
-                grid: {
-                    color: "#f1f5f9",
-                },
+                grid: { color: "rgba(148, 163, 184, 0.08)", drawTicks: false },
+                border: { display: false },
                 ticks: {
                     stepSize: 20,
                     color: "#64748b",
-                    font: { size: 12, family: "'Poppins', sans-serif" },
+                    font: { family: "'JetBrains Mono', monospace", size: 11 },
+                    padding: 10,
                 },
             },
             x: {
-                grid: {
-                    display: false,
-                },
+                grid: { display: false },
+                border: { display: false },
                 ticks: {
-                    color: "#334155",
-                    font: { size: 12, weight: "500", family: "'Poppins', sans-serif" },
-                    callback: function (val) {
-                        const lbl = this.getLabelForValue(val);
-                        return typeof lbl === "string" && lbl.length > 20
-                            ? lbl.substring(0, 18) + "…"
-                            : lbl;
-                    },
+                    color: "#94a3b8",
+                    font: { family: "'Space Grotesk', sans-serif", size: 12, weight: "500" },
                 },
             },
         },
         plugins: {
             legend: {
-                display: false,
+                display: true,
+                position: "bottom",
+                labels: {
+                    color: "#94a3b8",
+                    usePointStyle: true,
+                    boxWidth: 8,
+                    font: { family: "'Space Grotesk', sans-serif", size: 12 },
+                },
             },
             tooltip: {
-                backgroundColor: "#0f172a",
-                titleColor: "#ffffff",
-                bodyColor: "#f1f5f9",
-                padding: 10,
-                cornerRadius: 8,
+                backgroundColor: "rgba(2, 6, 23, 0.92)",
+                titleColor: "#e2e8f0",
+                bodyColor: "#f8fafc",
+                borderColor: "rgba(34, 211, 238, 0.35)",
+                borderWidth: 1,
+                padding: 12,
+                cornerRadius: 10,
+                displayColors: false,
                 callbacks: {
-                    label: (ctx) => ` Score: ${ctx.raw} / 100`,
+                    label: (ctx) => ` ${ctx.dataset.label}: ${ctx.raw} / 100`,
                 },
             },
         },
@@ -532,320 +601,252 @@ export default function Analysis() {
             <Navbar />
 
             <div className="page-container analysis-page">
-                {!result ? (
-                    /* ========================================================
-                       UPLOAD SECTION (Preserved exact behavior)
-                       ======================================================== */
-                    <div className="upload-section">
-                        <h1>
-                            <i className="fa-solid fa-cloud-arrow-up" /> Upload Your Resume
-                        </h1>
+                <div className="ambient ambient-a" aria-hidden="true" />
+                <div className="ambient ambient-b" aria-hidden="true" />
 
-                        <p>
-                            Upload your resume and let our AI provide a comprehensive ATS breakdown,
-                            keyword optimization, and prioritized career recommendations.
+                {!result ? (
+                    /* ---------------- UPLOAD ---------------- */
+                    <section className="upload-section">
+                        <span className="hero-eyebrow">AI · ATS INTELLIGENCE</span>
+                        <h1 className="upload-title">
+                            Upload your <span className="gradient-text">resume</span>
+                        </h1>
+                        <p className="upload-sub">
+                            Get a full ATS breakdown, keyword gap analysis and prioritized career
+                            recommendations in seconds.
                         </p>
 
-                        {/* Dropzone */}
-                        <div
-                            className={`upload-dropzone${dragActive ? " active" : ""}`}
-                            onDragEnter={handleDrag}
-                            onDragLeave={handleDrag}
-                            onDragOver={handleDrag}
-                            onDrop={handleDrop}
-                            onClick={() => fileInputRef.current?.click()}
-                        >
-                            <img
-                                className="upload-resume-image"
-                                src={uploadResumeImage}
-                                alt="Resume upload illustration"
-                            />
+                        <TiltCard className="dropzone-wrap" intensity={5}>
+                            <div
+                                className={`upload-dropzone${dragActive ? " is-active" : ""}`}
+                                onDragEnter={handleDrag}
+                                onDragLeave={handleDrag}
+                                onDragOver={handleDrag}
+                                onDrop={handleDrop}
+                                onClick={() => fileInputRef.current?.click()}
+                            >
+                                <img
+                                    className="upload-illustration"
+                                    src={uploadResumeImage}
+                                    alt="Resume upload illustration"
+                                />
+                                <div className="dropzone-copy">
+                                    <h3>{dragActive ? "Drop it like it's hot" : "Drag & drop your resume"}</h3>
+                                    <p>or click to browse · PDF only · max 10MB</p>
+                                </div>
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    accept=".pdf"
+                                    onChange={handleFileChange}
+                                    hidden
+                                />
+                            </div>
+                        </TiltCard>
 
-                            <h3>
-                                {dragActive
-                                    ? "Drop your resume here"
-                                    : "Drag & drop your resume here"}
-                            </h3>
-
-                            <p>or click to browse — PDF only, max 10MB</p>
-
-                            <input
-                                ref={fileInputRef}
-                                type="file"
-                                accept=".pdf"
-                                onChange={handleFileChange}
-                            />
-                        </div>
-
-                        {/* Selected file info */}
                         {file && (
-                            <div className="file-info">
+                            <div className="file-chip">
                                 <span>
-                                    📄 {file.name} ({(file.size / 1024).toFixed(1)} KB)
+                                    <i className="fa-regular fa-file-pdf" /> {file.name}{" "}
+                                    <small>({(file.size / 1024).toFixed(1)} KB)</small>
                                 </span>
-
                                 <button type="button" onClick={removeFile}>
-                                    ✕ Remove
+                                    <i className="fa-solid fa-xmark" /> Remove
                                 </button>
                             </div>
                         )}
 
-                        {/* Error */}
-                        {error && (
-                            <div className="error-message" style={{ marginTop: 16 }}>
-                                {error}
-                            </div>
-                        )}
+                        {error && <div className="error-banner">{error}</div>}
 
-                        {/* Action buttons */}
-                        <div className="upload-actions">
-                            <button
-                                type="button"
-                                className="btn btn-primary"
-                                onClick={handleAnalyze}
-                                disabled={!file || uploading}
-                            >
-                                {uploading ? (
-                                    <>
-                                        <span className="spinner" />
-                                        Analyzing Resume...
-                                    </>
-                                ) : (
-                                    <>
-                                        <i className="fa-solid fa-bolt" /> Analyze Resume
-                                    </>
-                                )}
-                            </button>
-                        </div>
-                    </div>
+                        <button
+                            type="button"
+                            className="cta-btn"
+                            onClick={handleAnalyze}
+                            disabled={!file || uploading}
+                        >
+                            {uploading ? (
+                                <>
+                                    <span className="spinner" /> Analyzing resume…
+                                </>
+                            ) : (
+                                <>
+                                    <i className="fa-solid fa-bolt" /> Analyze Resume
+                                </>
+                            )}
+                        </button>
+                    </section>
                 ) : (
-                    /* ========================================================
-                       PREMIUM SAAS DASHBOARD (Intelligence Report)
-                       ======================================================== */
+                    /* ---------------- DASHBOARD ---------------- */
                     <div className="analysis-dashboard">
-                        {/* SECTION A — Analysis Header */}
-                        <header className="dashboard-header-card">
+                        {/* HEADER */}
+                        <header className="dash-header glass">
                             <div className="header-left">
                                 <div className="header-eyebrow">
-                                    <span className="eyebrow-pill">RESUME ANALYSIS</span>
-                                    <span className="live-indicator">
+                                    <span className="pill pill-cyan">RESUME ANALYSIS</span>
+                                    <span className="live">
                                         <span className="live-dot" /> AI Evaluated
                                     </span>
                                 </div>
-                                <h1 className="header-title">Resume Intelligence Report</h1>
+                                <h1 className="header-title">
+                                    Resume <span className="gradient-text">Intelligence</span> Report
+                                </h1>
                                 <div className="candidate-meta">
-                                    <span className="candidate-name">
-                                        {result?.name || "Candidate Profile"}
-                                    </span>
+                                    <span className="candidate-name">{result?.name || "Candidate Profile"}</span>
                                     {result?.profession && (
                                         <>
-                                            <span className="meta-separator">•</span>
-                                            <span className="candidate-role">
-                                                {result.profession}
-                                            </span>
+                                            <span className="sep">/</span>
+                                            <span className="candidate-role">{result.profession}</span>
                                         </>
                                     )}
                                 </div>
-                                <div className="file-subtle-tag">
-                                    <i className="fa-regular fa-file-pdf" />
-                                    <span>{filename || "Resume.pdf"}</span>
+                                <div className="file-tag">
+                                    <i className="fa-regular fa-file-pdf" /> {filename || "Resume.pdf"}
                                 </div>
                             </div>
 
                             <div className="header-actions">
-                                <button
-                                    type="button"
-                                    className="btn-dash-action btn-dash-secondary"
-                                    onClick={handleReset}
-                                    title="Upload and evaluate another resume"
-                                >
-                                    <i className="fa-solid fa-arrow-left" />
-                                    <span>Analyze Another Resume</span>
+                                <button type="button" className="btn-ghost" onClick={handleReset}>
+                                    <i className="fa-solid fa-arrow-left" /> New analysis
                                 </button>
-
-                                <button
-                                    type="button"
-                                    className="btn-dash-action btn-dash-ghost"
-                                    onClick={() => window.print()}
-                                    title="Print or export as PDF report"
-                                >
-                                    <i className="fa-solid fa-arrow-up-right-from-square" />
-                                    <span>Export Report</span>
+                                <button type="button" className="btn-ghost" onClick={() => window.print()}>
+                                    <i className="fa-solid fa-print" /> Export
                                 </button>
-                                <button
-                                    type="button"
-                                    onClick={handleDownload}
-                                    disabled={!filepath || downloading}
-                                    style={{
-                                        display: filepath ? "flex" : "none",
-                                        alignItems: "center",
-                                        justifyContent: "center",
-                                        padding: "8px 16px",
-                                        background: "#007bff", // Your button color
-                                        color: "#fff",
-                                        border: "none",
-                                        borderRadius: "4px",
-                                        cursor: downloading ? "wait" : "pointer",
-                                        opacity: downloading ? 0.7 : 1,
-                                    }}
-                                >
-                                    {downloading ? "Downloading..." : "Download File"}
-                                </button>
+                                {filepath && (
+                                    <button
+                                        type="button"
+                                        className="btn-solid"
+                                        onClick={handleDownload}
+                                        disabled={downloading}
+                                    >
+                                        {downloading ? "Downloading…" : "Download PDF"}
+                                    </button>
+                                )}
                             </div>
                         </header>
 
-                        {/* SECTION B — ATS Score Hero Section */}
-                        <section className="dashboard-hero-section">
-                            <div className="hero-score-wrapper">
-                                <AtsScoreCircle
-                                    score={atsScore}
-                                    size={190}
-                                    strokeWidth={18}
-                                />
+                        {/* HERO */}
+                        <section className={`dash-hero glass ${atsInterpretation.tone}`}>
+                            <div className="hero-ring">
+                                <AtsScoreCircle score={atsScore} size={200} strokeWidth={16} />
                             </div>
-
-                            <div className="hero-details">
-                                <div className="hero-status-row">
-                                    <span className="hero-category-label">
-                                        OVERALL EVALUATION
-                                    </span>
-                                    <span className={`hero-match-badge ${atsInterpretation.toneClass}`}>
-                                        <i className="fa-solid fa-circle-check" />{" "}
-                                        {atsInterpretation.label}
-                                    </span>
+                            <div className="hero-copy">
+                                <span className="hero-kicker">OVERALL EVALUATION</span>
+                                <span className={`status-chip ${atsInterpretation.tone}`}>
+                                    <i className="fa-solid fa-circle-check" /> {atsInterpretation.label}
+                                </span>
+                                <h2 className="hero-heading">ATS Compatibility Score</h2>
+                                <div className="hero-score">
+                                    <span className="hero-big">{atsScore}</span>
+                                    <span className="hero-denom">/100</span>
                                 </div>
-
-                                <h2 className="hero-score-heading">
-                                    ATS Compatibility Score
-                                </h2>
-
-                                <div className="hero-score-display">
-                                    <span className="hero-score-big">{atsScore}</span>
-                                    <span className="hero-score-denom">/ 100</span>
-                                </div>
-
-                                <p className="hero-explanation">
-                                    {atsInterpretation.description}
-                                </p>
+                                <p className="hero-desc">{atsInterpretation.description}</p>
                             </div>
                         </section>
 
-                        {/* SECTION C — KPI Cards */}
-                        <section className="dashboard-kpi-grid">
+                        {/* KPIs */}
+                        <section className="kpi-grid">
                             <StatCard
                                 icon="fa-solid fa-bullseye"
                                 label="ATS Score"
                                 value={`${atsScore}/100`}
                                 subtext={atsInterpretation.label}
-                                accentColor="primary"
+                                accent="cyan"
                             />
                             <StatCard
                                 icon="fa-solid fa-chart-pie"
                                 label="Skill Match"
                                 value={`${skillScore}%`}
-                                subtext={`${matchedSkills.length} Matched • ${unmatchedSkills.length} Missing`}
-                                accentColor="success"
+                                subtext={`${matchedSkills.length} matched · ${unmatchedSkills.length} missing`}
+                                accent="emerald"
                             />
                             <StatCard
                                 icon="fa-solid fa-code"
                                 label="Project Score"
-                                value={projectsList.length > 0 ? `${projectAverageScore}/100` : "N/A"}
-                                subtext={`${projectsList.length} Technical Projects`}
-                                accentColor="accent"
+                                value={projectsList.length ? `${projectAverageScore}/100` : "N/A"}
+                                subtext={`${projectsList.length} technical projects`}
+                                accent="violet"
                             />
                             <StatCard
                                 icon="fa-solid fa-certificate"
                                 label="Certifications"
                                 value={certificationsList.length}
-                                subtext={certScore > 0 ? `Rating: ${certScore}/100` : "Verified credentials"}
-                                accentColor="warning"
+                                subtext={certScore > 0 ? `Rating ${certScore}/100` : "Verified credentials"}
+                                accent="amber"
                             />
                             <StatCard
                                 icon="fa-solid fa-briefcase"
                                 label="Experience"
                                 value={experienceList.length}
-                                subtext={experienceList.length > 0 ? "Track record" : "None detected"}
-                                accentColor="neutral"
+                                subtext={experienceList.length ? "Track record" : "None detected"}
+                                accent="rose"
                             />
                         </section>
 
-                        {/* SECTION D — Skills Match Analysis (Doughnut Chart + Skills Tags) */}
-                        <section className="dashboard-section skills-analysis-section">
+                        {/* SKILLS */}
+                        <section className="dash-section glass">
                             <SectionHeader
                                 eyebrow="COMPETENCY BENCHMARK"
-                                title="Skills Match Analysis"
+                                title="Skills Match"
                                 icon="fa-solid fa-microchip"
                                 action={
-                                    <span className="section-pill-tag">
-                                        {matchedSkills.length} of {matchedSkills.length + unmatchedSkills.length} Found
+                                    <span className="pill">
+                                        {matchedSkills.length} of {matchedSkills.length + unmatchedSkills.length}
                                     </span>
                                 }
                             />
 
-                            <div className="skills-grid-layout">
-                                {/* Left Chart Column */}
-                                <div className="skills-chart-box">
-                                    <div className="skills-doughnut-container">
+                            <div className="skills-layout">
+                                <TiltCard className="donut-card" intensity={6}>
+                                    <div className="donut-wrap">
                                         <Doughnut data={skillsDoughnutData} options={skillsDoughnutOptions} />
-                                        <div className="chart-center-metric">
-                                            <span className="metric-number">{skillScore}%</span>
-                                            <span className="metric-label">Match</span>
+                                        <div className="donut-center">
+                                            <span className="donut-num">{skillScore}%</span>
+                                            <span className="donut-label">Match</span>
                                         </div>
                                     </div>
-
-                                    <div className="skills-chart-legend">
-                                        <div className="legend-item">
-                                            <span className="legend-dot dot-matched" />
-                                            <span className="legend-name">Matched Skills</span>
-                                            <span className="legend-count">{matchedSkills.length}</span>
+                                    <div className="donut-legend">
+                                        <div>
+                                            <i className="dot dot-cyan" /> Matched <b>{matchedSkills.length}</b>
                                         </div>
-                                        <div className="legend-item">
-                                            <span className="legend-dot dot-unmatched" />
-                                            <span className="legend-name">Unmatched Skills</span>
-                                            <span className="legend-count">{unmatchedSkills.length}</span>
+                                        <div>
+                                            <i className="dot dot-rose" /> Missing <b>{unmatchedSkills.length}</b>
                                         </div>
                                     </div>
-                                </div>
+                                </TiltCard>
 
-                                {/* Right Lists Column */}
-                                <div className="skills-lists-box">
-                                    {/* Matched Skills */}
-                                    <div className="skill-group-container">
-                                        <div className="group-heading matched-heading">
-                                            <i className="fa-solid fa-circle-check" />
-                                            <span>Matched Skills ({matchedSkills.length})</span>
+                                <div className="skill-lists">
+                                    <div className="skill-group">
+                                        <div className="group-title ok">
+                                            <i className="fa-solid fa-circle-check" /> Matched ({matchedSkills.length})
                                         </div>
-                                        {matchedSkills.length > 0 ? (
-                                            <div className="skills-tag-wrap">
-                                                {matchedSkills.map((skill, idx) => (
-                                                    <span key={idx} className="skill-badge skill-matched">
-                                                        <i className="fa-solid fa-check" /> {skill}
+                                        {matchedSkills.length ? (
+                                            <div className="chip-wrap">
+                                                {matchedSkills.map((s, i) => (
+                                                    <span key={i} className="chip chip-ok">
+                                                        <i className="fa-solid fa-check" /> {s}
                                                     </span>
                                                 ))}
                                             </div>
                                         ) : (
-                                            <p className="no-items-text">No explicitly matched skills detected.</p>
+                                            <p className="muted-italic">No explicitly matched skills detected.</p>
                                         )}
                                     </div>
 
-                                    {/* Unmatched Skills */}
-                                    <div className="skill-group-container">
-                                        <div className="group-heading unmatched-heading">
-                                            <i className="fa-solid fa-circle-exclamation" />
-                                            <span>Unmatched / Missing Skills ({unmatchedSkills.length})</span>
+                                    <div className="skill-group">
+                                        <div className="group-title bad">
+                                            <i className="fa-solid fa-circle-exclamation" /> Missing ({unmatchedSkills.length})
                                         </div>
-                                        {unmatchedSkills.length > 0 ? (
-                                            <div className="skills-tag-wrap">
-                                                {unmatchedSkills.map((skill, idx) => (
-                                                    <span key={idx} className="skill-badge skill-unmatched">
-                                                        <i className="fa-solid fa-xmark" /> {skill}
+                                        {unmatchedSkills.length ? (
+                                            <div className="chip-wrap">
+                                                {unmatchedSkills.map((s, i) => (
+                                                    <span key={i} className="chip chip-bad">
+                                                        <i className="fa-solid fa-xmark" /> {s}
                                                     </span>
                                                 ))}
                                             </div>
                                         ) : (
-                                            <div className="all-skills-matched-pill">
-                                                <i className="fa-solid fa-circle-check" />
-                                                <span>✓ No missing skills detected — Excellent keyword alignment!</span>
+                                            <div className="all-clear">
+                                                <i className="fa-solid fa-circle-check" /> No missing skills detected
                                             </div>
                                         )}
                                     </div>
@@ -853,259 +854,194 @@ export default function Analysis() {
                             </div>
                         </section>
 
-                        {/* SECTION E — Projects Analysis — BAR CHART */}
-                        <section className="dashboard-section project-performance-section">
+                        {/* PROJECT LINE CHART */}
+                        <section className="dash-section glass">
                             <SectionHeader
                                 eyebrow="PORTFOLIO RIGOR"
                                 title="Project Performance"
-                                icon="fa-solid fa-chart-column"
-                                action={
-                                    <span className="section-pill-tag">
-                                        Avg Score: {projectAverageScore}/100
-                                    </span>
-                                }
+                                icon="fa-solid fa-wave-square"
+                                action={<span className="pill">Avg {projectAverageScore}/100</span>}
                             />
 
                             {projectsList.length > 0 ? (
-                                <div className="project-chart-card">
-                                    <div className="project-bar-chart-container">
-                                        <Bar data={projectBarData} options={projectBarOptions} />
+                                <div className="line-chart-card">
+                                    <div className="line-chart-wrap">
+                                        <Line data={projectLineData} options={projectLineOptions} />
                                     </div>
                                 </div>
                             ) : (
                                 <EmptyState
                                     icon="fa-solid fa-laptop-code"
                                     title="No projects detected"
-                                    message="No project sections were parsed from this resume. Adding quantified technical projects significantly enhances ATS scoring."
+                                    message="No project sections were parsed. Quantified technical projects significantly improve ATS scoring."
                                 />
                             )}
                         </section>
 
-                        {/* SECTION F — Project Cards */}
+                        {/* PROJECT CARDS */}
                         {projectsList.length > 0 && (
-                            <section className="dashboard-section project-cards-section">
-                                <SectionHeader
-                                    eyebrow="DETAILED REPOSITORIES"
-                                    title="Project Breakdown"
-                                    icon="fa-solid fa-layer-group"
-                                />
-
+                            <section className="dash-section glass">
+                                <SectionHeader eyebrow="DETAILED REPOSITORIES" title="Project Breakdown" icon="fa-solid fa-layer-group" />
                                 <div className="projects-grid">
-                                    {projectsList.map((project, idx) => (
-                                        <ProjectCard key={idx} project={project} index={idx} />
+                                    {projectsList.map((p, i) => (
+                                        <ProjectCard key={i} project={p} index={i} />
                                     ))}
                                 </div>
                             </section>
                         )}
 
-                        {/* SECTION G — Professional Summary */}
-                        <section className="dashboard-section summary-section">
-                            <SectionHeader
-                                eyebrow="EXECUTIVE PROFILE"
-                                title="Professional Summary"
-                                icon="fa-solid fa-user-tie"
-                            />
-
-                            <div className="summary-content-card">
-                                {result?.summary ? (
-                                    <p className="summary-paragraph">{result.summary}</p>
-                                ) : (
-                                    <EmptyState
-                                        icon="fa-solid fa-align-left"
-                                        title="No summary section found"
-                                        message="A concise professional summary highlighting your specialization and career trajectory is strongly recommended."
-                                    />
-                                )}
-                            </div>
+                        {/* SUMMARY */}
+                        <section className="dash-section glass">
+                            <SectionHeader eyebrow="EXECUTIVE PROFILE" title="Professional Summary" icon="fa-solid fa-user-tie" />
+                            {result?.summary ? (
+                                <p className="summary-text">{result.summary}</p>
+                            ) : (
+                                <EmptyState
+                                    icon="fa-solid fa-align-left"
+                                    title="No summary section found"
+                                    message="A concise professional summary highlighting your specialization is strongly recommended."
+                                />
+                            )}
                         </section>
 
-                        {/* SECTION H — Certifications */}
-                        <section className="dashboard-section certifications-section">
+                        {/* CERTIFICATIONS */}
+                        <section className="dash-section glass">
                             <SectionHeader
                                 eyebrow="CREDENTIALS & BADGES"
                                 title="Certifications"
                                 icon="fa-solid fa-certificate"
-                                action={
-                                    certScore > 0 ? (
-                                        <span className="section-pill-tag">
-                                            Score: {certScore}/100
-                                        </span>
-                                    ) : null
-                                }
+                                action={certScore > 0 ? <span className="pill">Score {certScore}/100</span> : null}
                             />
-
-                            <div className="certifications-content-card">
-                                {certificationsList.length > 0 ? (
-                                    <div className="certifications-grid">
-                                        {certificationsList.map((cert, idx) => (
-                                            <div key={idx} className="certification-item">
-                                                <div className="cert-icon-wrap">
-                                                    <i className="fa-solid fa-award" />
-                                                </div>
-                                                <span className="cert-text">{cert}</span>
+                            {certificationsList.length > 0 ? (
+                                <div className="cert-grid">
+                                    {certificationsList.map((c, i) => (
+                                        <TiltCard key={i} className="cert-item" intensity={5}>
+                                            <div className="cert-icon">
+                                                <i className="fa-solid fa-award" />
                                             </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <EmptyState
-                                        icon="fa-solid fa-award"
-                                        title="No certifications detected"
-                                        message="Adding industry-recognized credentials (AWS, Google Cloud, OCI, Scrum) can boost ATS ranking."
-                                    />
-                                )}
-                            </div>
+                                            <span>{c}</span>
+                                        </TiltCard>
+                                    ))}
+                                </div>
+                            ) : (
+                                <EmptyState
+                                    icon="fa-solid fa-award"
+                                    title="No certifications detected"
+                                    message="Industry-recognized credentials (AWS, Google Cloud, OCI, Scrum) can boost ATS ranking."
+                                />
+                            )}
                         </section>
 
-                        {/* SECTION I — Experience */}
-                        <section className="dashboard-section experience-section">
-                            <SectionHeader
-                                eyebrow="CAREER HISTORY"
-                                title="Professional Experience"
-                                icon="fa-solid fa-briefcase"
-                            />
-
-                            <div className="experience-content-card">
-                                {experienceList.length > 0 ? (
-                                    <div className="experience-list">
-                                        {experienceList.map((exp, idx) => (
-                                            <div key={idx} className="experience-item">
-                                                <div className="exp-marker">
-                                                    <i className="fa-solid fa-building" />
-                                                </div>
-                                                <div className="exp-details">
-                                                    <h4 className="exp-role">
-                                                        {exp?.role || exp?.title || "Role"}
-                                                    </h4>
-                                                    <div className="exp-company-row">
-                                                        <span className="exp-company">
-                                                            {exp?.company || "Company"}
-                                                        </span>
-                                                        {exp?.duration && (
-                                                            <>
-                                                                <span className="meta-separator">•</span>
-                                                                <span className="exp-duration">
-                                                                    {exp.duration}
-                                                                </span>
-                                                            </>
-                                                        )}
-                                                    </div>
-                                                    {exp?.description && (
-                                                        <p className="exp-desc">{exp.description}</p>
+                        {/* EXPERIENCE */}
+                        <section className="dash-section glass">
+                            <SectionHeader eyebrow="CAREER HISTORY" title="Professional Experience" icon="fa-solid fa-briefcase" />
+                            {experienceList.length > 0 ? (
+                                <div className="exp-list">
+                                    {experienceList.map((exp, i) => (
+                                        <TiltCard key={i} className="exp-item" intensity={4}>
+                                            <div className="exp-marker">
+                                                <i className="fa-solid fa-building" />
+                                            </div>
+                                            <div className="exp-body">
+                                                <h4 className="exp-role">{exp?.role || exp?.title || "Role"}</h4>
+                                                <div className="exp-meta">
+                                                    <span className="exp-company">{exp?.company || "Company"}</span>
+                                                    {exp?.duration && (
+                                                        <>
+                                                            <span className="sep">·</span>
+                                                            <span className="exp-duration">{exp.duration}</span>
+                                                        </>
                                                     )}
                                                 </div>
+                                                {exp?.description && <p className="exp-desc">{exp.description}</p>}
                                             </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <EmptyState
-                                        icon="fa-solid fa-briefcase"
-                                        title="No professional experience detected"
-                                        message="This resume emphasizes academic foundations, certifications, and technical projects over corporate work experience."
-                                    />
-                                )}
-                            </div>
+                                        </TiltCard>
+                                    ))}
+                                </div>
+                            ) : (
+                                <EmptyState
+                                    icon="fa-solid fa-briefcase"
+                                    title="No professional experience detected"
+                                    message="This resume emphasizes academic foundations, certifications and projects over corporate experience."
+                                />
+                            )}
                         </section>
 
-                        {/* SECTION J — Resume Quality Analysis (Two-Column) */}
-                        <section className="dashboard-section quality-section">
-                            <SectionHeader
-                                eyebrow="ATS AUDIT & SIGNAL ANALYSIS"
-                                title="Resume Quality Analysis"
-                                icon="fa-solid fa-scale-balanced"
-                            />
-
-                            <div className="quality-two-column-grid">
-                                {/* Left Column: Positive Signals */}
-                                <div className="quality-card quality-positives">
-                                    <div className="quality-card-header">
-                                        <div className="quality-header-icon positive-icon">
-                                            <i className="fa-solid fa-circle-check" />
-                                        </div>
+                        {/* QUALITY */}
+                        <section className="dash-section glass">
+                            <SectionHeader eyebrow="ATS AUDIT" title="Resume Quality" icon="fa-solid fa-scale-balanced" />
+                            <div className="quality-grid">
+                                <TiltCard className="quality-card q-good" intensity={4}>
+                                    <div className="quality-head">
+                                        <i className="fa-solid fa-circle-check" />
                                         <div>
-                                            <h4 className="quality-title">What Your Resume Does Well</h4>
-                                            <span className="quality-subtitle">
-                                                Strong signals detected by parsing algorithms
-                                            </span>
+                                            <h4>What Your Resume Does Well</h4>
+                                            <span>Strong signals detected by parsing</span>
                                         </div>
                                     </div>
-
                                     {positivesList.length > 0 ? (
                                         <ul className="signal-list">
-                                            {positivesList.map((item, idx) => (
-                                                <li key={idx} className="signal-item signal-positive">
+                                            {positivesList.map((item, i) => (
+                                                <li key={i} className="signal good">
                                                     <i className="fa-solid fa-check" />
                                                     <span>{item}</span>
                                                 </li>
                                             ))}
                                         </ul>
                                     ) : (
-                                        <p className="no-items-text">No specific positive signals highlighted.</p>
+                                        <p className="muted-italic">No specific positive signals highlighted.</p>
                                     )}
-                                </div>
+                                </TiltCard>
 
-                                {/* Right Column: Potential Concerns */}
-                                <div className="quality-card quality-negatives">
-                                    <div className="quality-card-header">
-                                        <div className="quality-header-icon negative-icon">
-                                            <i className="fa-solid fa-triangle-exclamation" />
-                                        </div>
+                                <TiltCard className="quality-card q-warn" intensity={4}>
+                                    <div className="quality-head">
+                                        <i className="fa-solid fa-triangle-exclamation" />
                                         <div>
-                                            <h4 className="quality-title">Potential Concerns</h4>
-                                            <span className="quality-subtitle">
-                                                Red flags that could filter out your application
-                                            </span>
+                                            <h4>Potential Concerns</h4>
+                                            <span>Red flags that could filter you out</span>
                                         </div>
                                     </div>
-
                                     {negativesList.length > 0 ? (
                                         <ul className="signal-list">
-                                            {negativesList.map((item, idx) => (
-                                                <li key={idx} className="signal-item signal-negative">
+                                            {negativesList.map((item, i) => (
+                                                <li key={i} className="signal bad">
                                                     <i className="fa-solid fa-exclamation" />
                                                     <span>{item}</span>
                                                 </li>
                                             ))}
                                         </ul>
                                     ) : (
-                                        <div className="all-clean-pill">
-                                            <i className="fa-solid fa-shield-halved" />
-                                            <span>✓ No significant ATS red flags detected in your resume structure.</span>
+                                        <div className="all-clear">
+                                            <i className="fa-solid fa-shield-halved" /> No significant ATS red flags
                                         </div>
                                     )}
-                                </div>
+                                </TiltCard>
                             </div>
                         </section>
 
-                        {/* SECTION K — Improvement Recommendations */}
-                        <section className="dashboard-section improvements-section">
+                        {/* IMPROVEMENTS */}
+                        <section className="dash-section glass">
                             <SectionHeader
                                 eyebrow="STRATEGIC ROADMAP"
                                 title="Recommended Improvements"
                                 icon="fa-solid fa-lightbulb"
                                 action={
                                     improvementsList.length > 0 ? (
-                                        <span className="section-pill-tag">
-                                            {improvementsList.length} Action Items
-                                        </span>
+                                        <span className="pill">{improvementsList.length} actions</span>
                                     ) : null
                                 }
                             />
-
                             {improvementsList.length > 0 ? (
-                                <div className="improvements-grid">
-                                    {improvementsList.map((rec, idx) => (
-                                        <RecommendationCard
-                                            key={idx}
-                                            improvement={rec}
-                                            index={idx}
-                                        />
+                                <div className="rec-list">
+                                    {improvementsList.map((rec, i) => (
+                                        <RecommendationCard key={i} improvement={rec} index={i} />
                                     ))}
                                 </div>
                             ) : (
                                 <EmptyState
                                     icon="fa-solid fa-award"
                                     title="No immediate improvements necessary"
-                                    message="Your resume satisfies all primary criteria for target role criteria."
+                                    message="Your resume satisfies all primary criteria for the target role."
                                 />
                             )}
                         </section>

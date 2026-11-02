@@ -8,8 +8,8 @@ import hirelenseLogo from "../assets/hirelense.png";
 import sample_vedio from "../assets/demo_vedio.mp4";
 import amazonPng from "../assets/amazon.png";
 import resumeAnalysis from "../assets/resume-analysis.png"
-import person_1 from "../assets/person_1.png"
-import person_2 from "../assets/person_2.png"
+import person_1 from "../assets/person_1.jpeg"
+import person_2 from "../assets/person_2.jpeg"
 import person_3 from "../assets/person_3.png"
 
 export default function Home() {
@@ -131,19 +131,19 @@ export default function Home() {
         {
             "id": 1,
             "img": person_1,
-            "contribution": "Frontend Development",
+            "contribution": "Frontend Developer",
             "name": "Jayanth"
         },
         {
             "id": 2,
             "img": person_2,
-            "contribution": "Backend Development",
+            "contribution": "Backend Developer",
             "name": "Durga Prasad"
         },
         {
             "id": 3,
             "img": person_3,
-            "contribution": "Frontend Development",
+            "contribution": "Frontend Developer",
             "name": "Sidhu"
         },
     ]
@@ -172,7 +172,7 @@ export default function Home() {
 
                     <div className="hero-action-group scroll-reveal" data-scroll-reveal>
                         <Link
-                            to={isauthenticated ? "/analysis" : "/login"}
+                            to={isauthenticated ? "/check_ats_score" : "/login"}
                             className="btn-hero-dark"
                         >
                             <span>{isauthenticated ? "Analyze My Resume" : "Start Free Assessment"}</span>

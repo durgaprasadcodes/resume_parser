@@ -131,9 +131,6 @@ function Navbar() {
                     {isauthenticated ? (
                         /* Logged in — show quick analysis button + profile avatar */
                         <>
-                            <Link to="/analysis" className="btn-nav-primary">
-                                Launch App →
-                            </Link>
                             <div className="profile-dropdown-wrapper" ref={dropdownRef}>
                                 <button
                                     className="nav-profile-btn"
@@ -231,7 +228,7 @@ function Navbar() {
                                 Login
                             </Link>
 
-                            <Link to="/login" className="nav-signup-pill">
+                            <Link to="/register" className="nav-signup-pill">
                                 Sign Up
                             </Link>
                         </>
@@ -309,7 +306,7 @@ function Navbar() {
                     ) : (
                         <div style={{ display: "flex", gap: "10px", width: "100%" }}>
                             <Link
-                                to="/login"
+                                to="/register"
                                 className="nav-login-link"
                                 style={{ flex: 1, textAlign: "center", padding: "10px 0" }}
                             >

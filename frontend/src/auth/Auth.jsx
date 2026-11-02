@@ -6,11 +6,11 @@ import { showSuccess, showError, extractErrorMessage } from "../lib/toast";
 import hirelenseLogo from "../assets/hirelense.png";
 import "../styles/Auth.css";
 
-function Login() {
+function Login({ initialSignup = false }) {
     const navigate = useNavigate();
     const { login } = useAuth();
 
-    const [isSignup, setIsSignup] = useState(false);
+    const [isSignup, setIsSignup] = useState(initialSignup);
 
     const [formData, setFormData] = useState({
         name: "",

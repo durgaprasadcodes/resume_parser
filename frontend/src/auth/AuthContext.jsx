@@ -8,6 +8,7 @@ import {
 
 import { showSuccess } from "../lib/toast";
 import api from "../api/api";
+import { clearAnalysis } from "../lib/analysisStorage";
 
 const AuthContext = createContext(null);
 
@@ -141,6 +142,7 @@ export function AuthProvider({ children }) {
             localStorage.removeItem("user");
             setUser(null);
             setLoading(false);
+            clearAnalysis();
         }
     }, []);
 

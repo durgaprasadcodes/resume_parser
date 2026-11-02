@@ -53,6 +53,14 @@ function App() {
           )
         },
         {
+          path: "register",
+          element: (
+            <PublicOnlyRoute>
+              <Login initialSignup />
+            </PublicOnlyRoute>
+          )
+        },
+        {
           path: "otp",
           element: (
             <PublicOnlyRoute>
