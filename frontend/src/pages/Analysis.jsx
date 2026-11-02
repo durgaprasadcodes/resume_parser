@@ -167,7 +167,9 @@ export default function Analysis() {
     const [file, setFile] = useState(null);
     const [dragActive, setDragActive] = useState(false);
     const [uploading, setUploading] = useState(false);
+    const [downloading, setDownloading] = useState(false);
     const [filename, setFilename] = useState("");
+    const [filepath, setFilepath] = useState("");
     const [result, setResult] = useState(null);
     const [error, setError] = useState("");
 
@@ -229,8 +231,36 @@ export default function Analysis() {
         setFile(null);
         setError("");
         setFilename("");
+        setFilepath("");
         if (fileInputRef.current) {
             fileInputRef.current.value = "";
+        }
+    };
+
+    const handleDownload = async () => {
+        if (!filepath) return;
+
+        setDownloading(true);
+        try {
+            const response = await fetch(filepath);
+            if (!response.ok) {
+                throw new Error(`Download failed (${response.status}).`);
+            }
+
+            const blob = await response.blob();
+            const downloadUrl = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = downloadUrl;
+            link.download = filename || "Resume.pdf";
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
+        } catch (err) {
+            console.error("Resume download error:", err);
+            showError("Could not download the resume. Please try again.");
+        } finally {
+            setDownloading(false);
         }
     };
 
@@ -257,7 +287,7 @@ export default function Analysis() {
 
             setResult(parsedResult);
             setFilename(response.data.filename || file.name || "Resume.pdf");
-
+            setFilepath(response.data.url);
             showSuccess("Resume analyzed successfully!");
         } catch (err) {
             console.error("Resume analysis error:", err);
@@ -630,6 +660,25 @@ export default function Analysis() {
                                 >
                                     <i className="fa-solid fa-arrow-up-right-from-square" />
                                     <span>Export Report</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleDownload}
+                                    disabled={!filepath || downloading}
+                                    style={{
+                                        display: filepath ? "flex" : "none",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        padding: "8px 16px",
+                                        background: "#007bff", // Your button color
+                                        color: "#fff",
+                                        border: "none",
+                                        borderRadius: "4px",
+                                        cursor: downloading ? "wait" : "pointer",
+                                        opacity: downloading ? 0.7 : 1,
+                                    }}
+                                >
+                                    {downloading ? "Downloading..." : "Download File"}
                                 </button>
                             </div>
                         </header>
