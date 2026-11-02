@@ -1,5 +1,6 @@
 import { useRef, useState, useMemo } from "react";
 import api from "../api/api";
+import { useAuth } from "../auth/AuthContext";
 import Navbar from "../components/Navbar";
 import uploadResumeImage from "../assets/upload_resume.png";
 import AtsScoreCircle from "../components/AtsScoreCircle";
@@ -164,6 +165,7 @@ function EmptyState({ icon = "fa-solid fa-inbox", title, message }) {
 // ============================================================================
 
 export default function Analysis() {
+    const { user } = useAuth();
     const [file, setFile] = useState(null);
     const [dragActive, setDragActive] = useState(false);
     const [uploading, setUploading] = useState(false);
@@ -270,6 +272,13 @@ export default function Analysis() {
             return;
         }
 
+        if (!user?.id) {
+            const errorMsg = "Your session could not be verified. Please sign in again.";
+            setError(errorMsg);
+            showError(errorMsg);
+            return;
+        }
+
         setError("");
         setUploading(true);
 
@@ -277,7 +286,9 @@ export default function Analysis() {
             const formData = new FormData();
             formData.append("file", file);
 
-            const response = await api.post("/hirelense/upload_resume", formData);
+            const response = await api.post("/hirelense/upload_resume", formData, {
+                params: { user_id: user.id },
+            });
 
             // Supports both JSON string and parsed object formats
             const parsedResult =
