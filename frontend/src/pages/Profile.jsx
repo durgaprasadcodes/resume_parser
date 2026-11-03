@@ -2,7 +2,7 @@ import { useAuth } from "../auth/AuthContext";
 import { Link } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import "../styles/profile.css";
-
+import { Github, VisualStudioCode, Figma } from '@thesvg/react';
 
 /* ---- Default User icon SVG (fallback when no picture) ---- */
 const UserIcon = () => (

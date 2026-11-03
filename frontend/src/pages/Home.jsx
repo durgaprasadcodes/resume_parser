@@ -5,7 +5,7 @@ import Navbar from "../components/Navbar";
 import "../styles/Home.css";
 
 import hirelenseLogo from "../assets/hirelense.png";
-import sample_vedio from "../assets/demo_vedio.mp4";
+import hirelense from "../assets/hirelense.mp4";
 import amazonPng from "../assets/amazon.png";
 import resumeAnalysis from "../assets/resume-analysis.png"
 import person_1 from "../assets/person_1.jpeg"
@@ -306,7 +306,7 @@ export default function Home() {
                             <video
                                 ref={previewVideoRef}
                                 className="showcase-main-image"
-                                src={sample_vedio}
+                                src={hirelense}
                                 loop
                                 muted
                                 playsInline
