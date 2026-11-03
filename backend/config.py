@@ -154,9 +154,9 @@ def set_auth_cookies(
         key="refresh_token",
         value=refresh_token,
         httponly=True,
-        secure=is_secure,
+        secure=True,
         max_age=60 * 60 * 24 * REFRESH_TOKEN_EXPIRY_TIME,
-        samesite=samesite,
+        samesite="none",
         path="/",
     )
 
@@ -164,9 +164,9 @@ def set_auth_cookies(
         key="access_token",
         value=access_token,
         httponly=True,
-        secure=is_secure,
+        secure=True,
         max_age=60 * ACCESS_TOKEN_EXPIRY_TIME,
-        samesite=samesite,
+        samesite="none",
         path="/",
     )
 
