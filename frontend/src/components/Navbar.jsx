@@ -219,6 +219,14 @@ function Navbar() {
                                         </Link>
 
                                         <button
+                                            type="button"
+                                            onClick={() => goToRoute("/jobs")}
+                                            className="dropdown-item"
+                                        >
+                                            Jobs
+                                        </button>
+
+                                        <button
                                             className="dropdown-item danger"
                                             onClick={handleLogout}
                                         >
@@ -300,6 +308,14 @@ function Navbar() {
                     className="nav-link nav-link-btn"
                 >
                     <i className="fa-solid fa-user" style={{ marginRight: 3 }}> </i> Profile
+                </button>
+
+                <button
+                    type="button"
+                    onClick={() => goToRoute("/jobs")}
+                    className="nav-link nav-link-btn"
+                >
+                    <i className="fa-solid fa-briefcase" style={{ marginRight: 3 }}></i> Jobs
                 </button>
 
                 <div className="navbar-actions" style={{ flexDirection: "column", width: "100%", gap: "10px" }}>

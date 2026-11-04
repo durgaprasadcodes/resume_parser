@@ -85,6 +85,7 @@ body {
     background: var(--bg);
     color: var(--text-primary);
     line-height: 1.6;
+    overflow-wrap: break-word;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
 }
@@ -135,41 +136,6 @@ img {
     text-decoration: none;
 }
 
-.btn-ghost {
-    color: var(--text-secondary);
-    background: transparent;
-}
-
-.btn-ghost:hover {
-    color: var(--text-primary);
-    background: var(--border-light);
-}
-
-.btn-primary {
-    background: var(--primary);
-    color: var(--text-inverse);
-    box-shadow: 0 2px 8px var(--primary-glow);
-}
-
-.btn-primary:hover {
-    background: var(--primary-hover);
-    box-shadow: 0 4px 16px var(--primary-glow);
-    transform: translateY(-1px);
-}
-
-.btn-primary:active {
-    transform: translateY(0);
-}
-
-.btn-outline {
-    color: var(--primary);
-    background: transparent;
-    border: 1.5px solid var(--primary);
-}
-
-.btn-outline:hover {
-    background: var(--primary-light);
-}
 
 .btn-danger {
     color: var(--text-inverse);
@@ -194,19 +160,6 @@ img {
     opacity: 0.55;
     cursor: not-allowed;
     transform: none !important;
-}
-
-.btn-white {
-    background: white;
-    color: var(--primary);
-    font-weight: 700;
-    position: relative;
-    z-index: 1;
-}
-
-.btn-white:hover {
-    background: #F0EAFF;
-    transform: translateY(-2px);
 }
 
 /* ===== GLOBAL MESSAGES & ALERTS ===== */

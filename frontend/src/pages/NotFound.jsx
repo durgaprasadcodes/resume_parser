@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import "../styles/NotFound.css";
-
+import LoadingAnimation5 from "../anim/LoadingAnimation5";
 
 export default function NotFound() {
 
@@ -11,7 +11,8 @@ export default function NotFound() {
 
             <div className="not-found-page">
 
-                <div className="not-found-code">404</div>
+
+                <LoadingAnimation5 />
 
                 <h2>Page Not Found</h2>
 
@@ -20,7 +21,7 @@ export default function NotFound() {
                     or has been moved.
                 </p>
 
-                <Link to="/" className="btn btn-primary btn-lg">
+                <Link to="/" className="not-found-back-btn">
                     ← Back to Home
                 </Link>
 

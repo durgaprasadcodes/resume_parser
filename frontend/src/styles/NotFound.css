@@ -1,44 +1,131 @@
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap");
+
 /* ==========================================================================
-   HIRELENSE.AI — 404 NOT FOUND STYLES
+   404 NOT FOUND PAGE STYLES
    ========================================================================== */
 
 .not-found-page {
-    min-height: calc(100vh - 68px);
+    position: relative;
+    min-height: calc(100vh - 80px);
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     text-align: center;
-    padding: 40px 20px;
+    padding: 3rem 1.5rem 5rem;
+    background-color: #f8fafc;
+    background-image: 
+        radial-gradient(circle at 20% 25%, rgba(254, 228, 216, 0.45), transparent 45%),
+        radial-gradient(circle at 80% 35%, rgba(224, 231, 255, 0.5), transparent 50%);
+    font-family: "Plus Jakarta Sans", "Inter", system-ui, -apple-system, sans-serif;
+    color: #0f172a;
+    box-sizing: border-box;
+    overflow: hidden;
 }
 
-.not-found-code {
-    font-size: 120px;
-    font-weight: 900;
-    background: linear-gradient(135deg, var(--primary), var(--accent));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    line-height: 1;
-    margin-bottom: 12px;
+.not-found-page *,
+.not-found-page *::before,
+.not-found-page *::after {
+    box-sizing: border-box;
 }
 
+/* Lottie Animation Wrapper */
+.not-found-page .not-found-animation-wrap,
+.not-found-page > div:first-child {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    max-width: 360px;
+    width: 100%;
+    margin: 0 auto 12px;
+}
+
+.not-found-page canvas,
+.not-found-page svg {
+    max-width: 360px !important;
+    max-height: 360px !important;
+    width: 100% !important;
+    height: auto !important;
+    display: block;
+    margin: 0 auto;
+    filter: drop-shadow(0 12px 24px rgba(0, 0, 0, 0.04));
+}
+
+/* Page Heading */
 .not-found-page h2 {
-    font-size: 24px;
-    font-weight: 700;
-    margin-bottom: 8px;
-    color: var(--text-primary);
+    font-size: clamp(2rem, 3.5vw + 0.8rem, 2.75rem);
+    font-weight: 800;
+    color: #0f172a;
+    letter-spacing: -0.03em;
+    line-height: 1.2;
+    margin: 8px 0 10px;
 }
 
+/* Description Text */
 .not-found-page p {
-    color: var(--text-secondary);
-    font-size: 16px;
-    margin-bottom: 28px;
-    max-width: 480px;
+    font-size: clamp(0.98rem, 1vw + 0.5rem, 1.12rem);
+    color: #64748b;
+    max-width: 460px;
+    line-height: 1.65;
+    margin: 0 auto 28px;
+    font-weight: 500;
 }
 
-@media (max-width: 550px) {
-    .not-found-code {
-        font-size: 80px;
+/* Back to Home Button */
+.not-found-page .btn,
+.not-found-page .btn-primary,
+.not-found-page .btn-lg {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 13px 32px;
+    background-color: #505df5;
+    color: #ffffff !important;
+    font-family: inherit;
+    font-size: 0.96rem;
+    font-weight: 700;
+    text-decoration: none;
+    border: none;
+    border-radius: 9999px;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(80, 93, 245, 0.35);
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.not-found-page .btn:hover,
+.not-found-page .btn-primary:hover,
+.not-found-page .btn-lg:hover {
+    background-color: #3f4cd9;
+    box-shadow: 0 8px 24px rgba(80, 93, 245, 0.45);
+    transform: translateY(-2px);
+    color: #ffffff;
+}
+
+.not-found-page .btn:active,
+.not-found-page .btn-primary:active,
+.not-found-page .btn-lg:active {
+    transform: translateY(0);
+}
+
+/* Responsive Adjustments */
+@media (max-width: 640px) {
+    .not-found-page {
+        padding: 2rem 1.25rem 4rem;
+        min-height: calc(100vh - 70px);
+    }
+
+    .not-found-page canvas,
+    .not-found-page svg {
+        max-width: 280px !important;
+        max-height: 280px !important;
+    }
+
+    .not-found-page .btn,
+    .not-found-page .btn-primary,
+    .not-found-page .btn-lg {
+        width: 100%;
+        max-width: 280px;
     }
 }
+

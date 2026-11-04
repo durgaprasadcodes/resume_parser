@@ -6,6 +6,7 @@ import uploadResumeImage from "../assets/upload_resume.png";
 import AtsScoreCircle from "../components/AtsScoreCircle";
 import { showSuccess, showError } from "../lib/toast";
 import { saveAnalysis, loadAnalysis, clearAnalysis } from "../lib/analysisStorage";
+import LoadingAnimation4 from "../anim/LoadingAnimation4";
 import "../styles/Analysis.css";
 
 import {
@@ -220,6 +221,7 @@ export default function Analysis() {
     const saved = useMemo(() => loadAnalysis(), []);
 
     const [file, setFile] = useState(null);
+    const [jd, setJd] = useState("");
     const [dragActive, setDragActive] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [downloading, setDownloading] = useState(false);
@@ -271,6 +273,7 @@ export default function Analysis() {
     const handleReset = () => {
         setResult(null);
         setFile(null);
+        setJd("");
         setError("");
         setFilename("");
         setFilepath("");
@@ -320,6 +323,9 @@ export default function Analysis() {
         try {
             const formData = new FormData();
             formData.append("file", file);
+            if (jd && jd.trim()) {
+                formData.append("jd", jd.trim());
+            }
 
             const response = await api.post("/hirelense/upload_resume", formData, {
                 params: { user_id: user.id },
@@ -604,7 +610,29 @@ export default function Analysis() {
                 <div className="ambient ambient-a" aria-hidden="true" />
                 <div className="ambient ambient-b" aria-hidden="true" />
 
-                {!result ? (
+                {uploading ? (
+                    /* ---------------- LOADING ANIMATION STATE (Animation4) ---------------- */
+                    <section className="analysis-loading-section" aria-live="polite">
+                        <div className="analysis-loading-card">
+                            <LoadingAnimation4 width={300} height={300} />
+                            <div className="analysis-loading-copy">
+                                <span className="hero-eyebrow">AI PARSER ACTIVE</span>
+                                <h2 className="loading-title">Analyzing Your Resume…</h2>
+                                <p className="loading-subtitle">
+                                    Our AI engine is extracting keywords, evaluating ATS compatibility, and calculating your score.
+                                </p>
+                                <div className="loading-steps-pills">
+                                    <span className="loading-step-pill active">
+                                        <span className="step-live-dot" /> {file?.name || "Document.pdf"}
+                                    </span>
+                                    <span className="loading-step-pill">
+                                        <i className="fa-solid fa-wand-magic-sparkles" /> Hirelense AI
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                ) : !result ? (
                     /* ---------------- UPLOAD ---------------- */
                     <section className="upload-section">
                         <span className="hero-eyebrow">AI · ATS INTELLIGENCE</span>
@@ -616,45 +644,86 @@ export default function Analysis() {
                             recommendations in seconds.
                         </p>
 
-                        <TiltCard className="dropzone-wrap" intensity={5}>
-                            <div
-                                className={`upload-dropzone${dragActive ? " is-active" : ""}`}
-                                onDragEnter={handleDrag}
-                                onDragLeave={handleDrag}
-                                onDragOver={handleDrag}
-                                onDrop={handleDrop}
-                                onClick={() => fileInputRef.current?.click()}
-                            >
-                                <img
-                                    className="upload-illustration"
-                                    src={uploadResumeImage}
-                                    alt="Resume upload illustration"
-                                />
-                                <div className="dropzone-copy">
-                                    <h3>{dragActive ? "Drop it like it's hot" : "Drag & drop your resume"}</h3>
-                                    <p>or click to browse · PDF only · max 10MB</p>
-                                </div>
-                                <input
-                                    ref={fileInputRef}
-                                    type="file"
-                                    accept=".pdf"
-                                    onChange={handleFileChange}
-                                    hidden
-                                />
-                            </div>
-                        </TiltCard>
+                        {/* Workbench: Side-by-Side (display: flex) on Desktop, Stacked (flex-direction: column) on Mobile */}
+                        <div className="upload-workbench">
+                            <div className="workbench-col resume-col">
+                                <TiltCard className="dropzone-wrap" intensity={5}>
+                                    <div
+                                        className={`upload-dropzone${dragActive ? " is-active" : ""}`}
+                                        onDragEnter={handleDrag}
+                                        onDragLeave={handleDrag}
+                                        onDragOver={handleDrag}
+                                        onDrop={handleDrop}
+                                        onClick={() => fileInputRef.current?.click()}
+                                    >
+                                        <img
+                                            className="upload-illustration"
+                                            src={uploadResumeImage}
+                                            alt="Resume upload illustration"
+                                        />
+                                        <div className="dropzone-copy">
+                                            <h3>{dragActive ? "Drop it like it's hot" : "Drag & drop your resume"}</h3>
+                                            <p>or click to browse · PDF only · max 10MB</p>
+                                        </div>
+                                        <input
+                                            ref={fileInputRef}
+                                            type="file"
+                                            accept=".pdf"
+                                            onChange={handleFileChange}
+                                            hidden
+                                        />
+                                    </div>
+                                </TiltCard>
 
-                        {file && (
-                            <div className="file-chip">
-                                <span>
-                                    <i className="fa-regular fa-file-pdf" /> {file.name}{" "}
-                                    <small>({(file.size / 1024).toFixed(1)} KB)</small>
-                                </span>
-                                <button type="button" onClick={removeFile}>
-                                    <i className="fa-solid fa-xmark" /> Remove
-                                </button>
+                                {file && (
+                                    <div className="file-chip">
+                                        <span>
+                                            <i className="fa-regular fa-file-pdf" /> {file.name}{" "}
+                                            <small>({(file.size / 1024).toFixed(1)} KB)</small>
+                                        </span>
+                                        <button type="button" onClick={removeFile}>
+                                            <i className="fa-solid fa-xmark" /> Remove
+                                        </button>
+                                    </div>
+                                )}
                             </div>
-                        )}
+
+                            <div className="workbench-col jd-col">
+                                <div className="jd-input-container">
+                                    <div className="jd-input-header">
+                                        <label htmlFor="jd-textarea" className="jd-input-title">
+                                            <i className="fa-solid fa-briefcase" /> Target Job Description
+                                            <span className="jd-optional-tag">Optional</span>
+                                        </label>
+                                        {jd && (
+                                            <button
+                                                type="button"
+                                                className="jd-clear-btn"
+                                                onClick={() => setJd("")}
+                                            >
+                                                Clear
+                                            </button>
+                                        )}
+                                    </div>
+                                    <textarea
+                                        id="jd-textarea"
+                                        className="jd-textarea"
+                                        rows={6}
+                                        placeholder="Paste the target Job Description (JD) here to evaluate your keyword match, skills alignment, and role relevancy..."
+                                        value={jd}
+                                        onChange={(e) => setJd(e.target.value)}
+                                    />
+                                    <div className="jd-input-footer">
+                                        <span className="jd-char-counter">
+                                            {jd.length.toLocaleString()} characters
+                                        </span>
+                                        <span className="jd-input-hint">
+                                            <i className="fa-regular fa-lightbulb" /> Tip: Tailors ATS score & missing keywords.
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
 
                         {error && <div className="error-banner">{error}</div>}
 
