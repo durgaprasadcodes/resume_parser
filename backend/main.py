@@ -1,7 +1,6 @@
-from fastapi import FastAPI, BackgroundTasks
+from fastapi import FastAPI
 from auth.jwt_auth import router
 from auth.google_auth import google_router
-from pydantic import EmailStr
 from fastapi.middleware.cors import CORSMiddleware
 from config import limiter, FRONTEND_URL, GOOGLE_SESSION_SECRET
 from starlette.middleware.sessions import SessionMiddleware

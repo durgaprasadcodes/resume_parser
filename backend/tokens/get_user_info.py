@@ -21,7 +21,14 @@ def get_user_info(
     db: Session = Depends(get_db),
 ):
 
-    access_token = request.cookies.get("access_token")
+    authorization = request.headers.get("Authorization", "")
+    scheme, _, access_token = authorization.partition(" ")
+    access_token = access_token.strip()
+    if scheme.lower() != "bearer" or not access_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Access token is missing.",
+        )
 
     try:
         payload = decode_access_token(access_token)
@@ -59,5 +66,4 @@ def get_user_info(
 
     data = serialize_user(user)
     cashe_user(data)
-
     return data

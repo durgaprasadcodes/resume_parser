@@ -118,7 +118,7 @@ function OTPVerification() {
                 sessionStorage.removeItem("pendingRegistrationEmail");
 
                 const userData = response.data.user;
-                login(userData || { email });
+                login(userData || { email }, response.data.access_token);
 
                 const successMsg = response.data.message || "Account verified!";
                 showSuccess(successMsg);
@@ -132,7 +132,10 @@ function OTPVerification() {
 
         } catch (error) {
             const detail = error.response?.data?.detail;
-            let errorMsg = error.response?.data?.message || "OTP verification failed.";
+            let errorMsg =
+                error.response?.data?.message ||
+                error.message ||
+                "OTP verification failed.";
             if (typeof detail === "string") {
                 errorMsg = detail;
             } else if (Array.isArray(detail)) {

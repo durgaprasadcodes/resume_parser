@@ -134,6 +134,7 @@ async def login(
             "picture": db_user.picture,
             "is_verified": db_user.is_verified,
         },
+        "access_token": access_token,
     }
 
 
@@ -245,6 +246,7 @@ async def verify_otp(
             "picture": new_user.picture,
             "is_verified": new_user.is_verified,
         },
+        "access_token": access_token,
     }
 
 
@@ -276,10 +278,6 @@ async def refresh_token_rotation(
 
     # 1. Get refresh token from cookie
     refresh_token = request.cookies.get("refresh_token")
-
-    print(
-        f"Refresh token rotation hit at {datetime.utcnow()} and {refresh_token} is the refresh token"
-    )
 
     if not refresh_token:
         raise HTTPException(
@@ -344,8 +342,8 @@ async def refresh_token_rotation(
     )
     db.add(new_record)
     db.flush()  # populates new_record.id
-    invalidate_user(user.id)  
-    
+    invalidate_user(user.id)
+
     # 8. Revoke the old token and point it at its replacement
     record.revoked = True
     record.revoked_by_id = new_record.id
@@ -364,6 +362,7 @@ async def refresh_token_rotation(
             "picture": user.picture,
             "is_verified": user.is_verified,
         },
+        "access_token": access_token,
     }
 
 
@@ -376,7 +375,6 @@ async def logout(
     refresh_token = request.cookies.get("refresh_token")
 
     if refresh_token:
-        print("Entered the logout route ✅")
         hashed_token = hash_refresh_token(refresh_token)
         record = (
             db.query(RefreshToken)
@@ -387,11 +385,8 @@ async def logout(
             record.revoked = True
             db.commit()
             invalidate_user(record.user_id)
-        else:
+        elif record:
             invalidate_user(record.user_id)
-            print("Entered the logout route but not enting to db 📊")
-    else:
-        print("Unable to enter the logout route ❌")
 
     clear_auth_cookies(response, request)
     return {"message": "Logout successful."}

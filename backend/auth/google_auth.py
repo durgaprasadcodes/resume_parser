@@ -56,6 +56,7 @@ def _frontend_redirect(
                 "name": user_name or "",
                 "email": user_email or "",
                 "picture": user_picture or "",
+                "access_token": access_token or "",
             }
         )
         url = f"{frontend_url}/#oauth-callback?{params}"

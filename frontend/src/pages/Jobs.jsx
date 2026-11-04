@@ -18,6 +18,15 @@ function getErrorMessage(error) {
     return error.message || "Failed to fetch jobs. Please try again.";
 }
 
+function getDescriptionPreview(description, maxLength = 220) {
+    if (!description) return "No description available.";
+
+    const normalized = description.trim();
+    if (normalized.length <= maxLength) return normalized;
+
+    return `${normalized.slice(0, maxLength).trimEnd()}…`;
+}
+
 function Jobs() {
     const location = useLocation();
     const navigate = useNavigate();
@@ -96,19 +105,6 @@ function Jobs() {
         }
 
         return format(min ?? max);
-    };
-
-    const formatDate = (date) => {
-        if (!date) return "Recently posted";
-
-        const parsedDate = new Date(date);
-        if (Number.isNaN(parsedDate.getTime())) return "Recently posted";
-
-        return parsedDate.toLocaleDateString("en-IN", {
-            day: "numeric",
-            month: "short",
-            year: "numeric",
-        });
     };
 
     return (
@@ -229,7 +225,7 @@ function Jobs() {
                                 </div>
 
                                 <p className="job-description">
-                                    {job.description || "No description available."}
+                                    {getDescriptionPreview(job.description)}
                                 </p>
 
                                 {job.redirect_url && (

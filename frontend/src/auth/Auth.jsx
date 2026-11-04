@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api/api";
 import { useAuth } from "./AuthContext";
-import { showSuccess, showError, extractErrorMessage } from "../lib/toast";
+import { showSuccess, showError } from "../lib/toast";
 import hirelenseLogo from "../assets/hirelense.png";
 import "../styles/Auth.css";
 
@@ -110,10 +110,7 @@ function Login({ initialSignup = false }) {
 
             if (response.status === 200) {
                 const userData = response.data.user;
-
-                login(
-                    userData || { email: formData.email }
-                );
+                login(userData || { email: formData.email }, response.data.access_token);
 
                 showSuccess("Welcome back! Signed in successfully.");
 
@@ -125,7 +122,7 @@ function Login({ initialSignup = false }) {
             const detail = error.response?.data?.detail;
 
             let errorMsg =
-                "Login failed. Please check your credentials.";
+                error.message || "Login failed. Please check your credentials.";
 
             if (typeof detail === "string") {
                 errorMsg = detail;

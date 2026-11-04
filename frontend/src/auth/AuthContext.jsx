@@ -1,9 +1,9 @@
 import {
     createContext,
+    useCallback,
     useContext,
     useEffect,
     useState,
-    useCallback,
 } from "react";
 
 import { showSuccess } from "../lib/toast";
@@ -12,122 +12,125 @@ import { clearAnalysis } from "../lib/analysisStorage";
 
 const AuthContext = createContext(null);
 
+function getStoredUser() {
+    try {
+        const savedUser = localStorage.getItem("user");
+        return savedUser ? JSON.parse(savedUser) : null;
+    } catch (error) {
+        console.error("Failed to parse user from localStorage:", error);
+        localStorage.removeItem("user");
+        return null;
+    }
+}
+
 export function AuthProvider({ children }) {
+    const [user, setUser] = useState(getStoredUser);
+    const [loading, setLoading] = useState(true);
 
-    // ============================================================
-    // Keep cached user details available while the server validates the session.
-    // ============================================================
-
-    const [user, setUser] = useState(() => {
-        try {
-            const savedUser = localStorage.getItem("user");
-            return savedUser ? JSON.parse(savedUser) : null;
-        } catch (error) {
-            console.error("Failed to parse user from localStorage:", error);
-            return null;
-        }
-    });
-
-    const [loading, setLoading] = useState(false);
-
-    // ============================================================
-    // 2. GOOGLE OAUTH CALLBACK
-    // ============================================================
     const handleOAuthCallback = useCallback(() => {
         const hash = window.location.hash;
-
-        if (!hash.startsWith("#oauth-callback?")) {
-            return false;
-        }
+        if (!hash.startsWith("#oauth-callback?")) return false;
 
         const queryString = hash.slice("#oauth-callback?".length);
         const params = new URLSearchParams(queryString);
-
         const name = params.get("name");
         const email = params.get("email");
         const picture = params.get("picture");
+        const accessToken = params.get("access_token");
 
-        if (!email) {
-            return false;
+        if (!email) return false;
+
+        if (accessToken) {
+            localStorage.setItem("access_token", accessToken);
+        } else {
+            localStorage.removeItem("access_token");
         }
 
-        const userData = {
-            name,
-            email,
-            picture,
-        };
-
+        const userData = { name, email, picture };
         setUser(userData);
         localStorage.setItem("user", JSON.stringify(userData));
 
-        // Clean up OAuth information from URL hash
-        window.history.replaceState(
-            null,
-            "",
-            window.location.pathname
-        );
-
+        window.history.replaceState(null, "", window.location.pathname);
         return true;
     }, []);
 
-    // ============================================================
-    // 3. BACKGROUND AUTH CHECK (/auth/me)
-    // ============================================================
     const checkAuth = useCallback(async () => {
         handleOAuthCallback();
 
         try {
             const response = await api.get("/auth/me");
             if (response.status === 200 && response.data) {
-                const userData = response.data;
-                setUser(userData);
-                localStorage.setItem("user", JSON.stringify(userData));
+                setUser(response.data);
+                localStorage.setItem("user", JSON.stringify(response.data));
             } else {
+                localStorage.removeItem("access_token");
                 localStorage.removeItem("user");
                 setUser(null);
             }
         } catch (error) {
             if (error.response?.status === 401) {
-                console.warn("Session expired or invalid, logging out.");
+                localStorage.removeItem("access_token");
+                localStorage.removeItem("user");
+                setUser(null);
+                clearAnalysis();
             } else {
                 console.error("Background auth check failed:", error);
             }
-            localStorage.removeItem("user");
-            setUser(null);
+        } finally {
+            setLoading(false);
         }
     }, [handleOAuthCallback]);
 
-    // ============================================================
-    // 4. SYNC ON MOUNT & GLOBAL AUTH LOGOUT LISTENER
-    // ============================================================
     useEffect(() => {
         checkAuth();
     }, [checkAuth]);
 
     useEffect(() => {
-        // Triggered by axios interceptor if a refresh attempt fails on any request
         const handleUnauthorized = () => {
+            localStorage.removeItem("access_token");
             localStorage.removeItem("user");
             setUser(null);
+            clearAnalysis();
         };
 
         window.addEventListener("auth:unauthorized", handleUnauthorized);
-        return () => window.removeEventListener("auth:unauthorized", handleUnauthorized);
+        return () => {
+            window.removeEventListener("auth:unauthorized", handleUnauthorized);
+        };
     }, []);
 
-    // ============================================================
-    // 5. LOGIN
-    // ============================================================
-    const login = useCallback((userData) => {
-        if (userData) {
-            setUser(userData);
-            localStorage.setItem("user", JSON.stringify(userData));
+    useEffect(() => {
+        const syncUserAcrossTabs = (event) => {
+            if (event.key === "user") {
+                try {
+                    setUser(event.newValue ? JSON.parse(event.newValue) : null);
+                } catch (error) {
+                    console.error("Failed to sync user from another tab:", error);
+                    setUser(null);
+                }
+            }
+
+            if (event.key === "access_token" && event.newValue === null) {
+                localStorage.removeItem("user");
+                setUser(null);
+            }
+        };
+
+        window.addEventListener("storage", syncUserAcrossTabs);
+        return () => window.removeEventListener("storage", syncUserAcrossTabs);
+    }, []);
+
+    const login = useCallback((userData, accessToken) => {
+        if (typeof accessToken !== "string" || !accessToken) {
+            throw new Error("Authentication succeeded without an access token.");
         }
+
+        const normalizedUser = userData || {};
+        localStorage.setItem("access_token", accessToken);
+        localStorage.setItem("user", JSON.stringify(normalizedUser));
+        setUser(normalizedUser);
     }, []);
 
-    // ============================================================
-    // 6. LOGOUT
-    // ============================================================
     const logout = useCallback(async () => {
         setLoading(true);
         try {
@@ -138,21 +141,19 @@ export function AuthProvider({ children }) {
         } catch (error) {
             console.error("Logout failed:", error);
         } finally {
-            // Clear local user metadata & state
             localStorage.removeItem("user");
+            localStorage.removeItem("access_token");
             setUser(null);
             setLoading(false);
             clearAnalysis();
         }
     }, []);
 
-    const isauthenticated = !!user;
-
     return (
         <AuthContext.Provider
             value={{
                 user,
-                isauthenticated,
+                isauthenticated: !!user,
                 loading,
                 login,
                 logout,

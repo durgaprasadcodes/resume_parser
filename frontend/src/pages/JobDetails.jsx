@@ -46,17 +46,13 @@ function JobDetails() {
     const selectedJob =
         stateJob && String(stateJob.id) === id ? stateJob : null;
     const currentResult = result?.id === id ? result : null;
-    const job = selectedJob || currentResult?.job;
+    const job = currentResult?.job || selectedJob;
     const loading = !selectedJob && (!currentResult || currentResult.loading);
     const notFound = currentResult?.notFound || false;
     const error = currentResult?.error || "";
 
     useEffect(() => {
         const controller = new AbortController();
-
-        if (selectedJob) {
-            return () => controller.abort();
-        }
 
         const fetchJob = async () => {
             try {
@@ -85,6 +81,7 @@ function JobDetails() {
                 });
             } catch (requestError) {
                 if (requestError.code === "ERR_CANCELED") return;
+                if (selectedJob) return;
 
                 const detail = requestError.response?.data?.detail;
                 const message =
