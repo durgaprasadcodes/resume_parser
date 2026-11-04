@@ -116,6 +116,14 @@ function Navbar() {
 
                     <button
                         type="button"
+                        onClick={() => goToRoute("/jobs")}
+                        className="nav-link nav-link-btn"
+                    >
+                        Jobs
+                    </button>
+
+                    <button
+                        type="button"
                         onClick={() => goToRoute("/profile")}
                         className="nav-link nav-link-btn"
                     >

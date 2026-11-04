@@ -9,6 +9,8 @@ import Login from './auth/Auth'
 import NotFound from './pages/NotFound'
 import OTPVerification from './auth/OTPVerification.jsx'
 import ForgotPassword from './auth/ForgotPassword.jsx'
+import Jobs from './pages/Jobs.jsx'
+import JobDetails from './pages/JobDetails.jsx'
 import { AuthProvider } from './auth/AuthContext.jsx'
 import { ProtectedRoute, PublicOnlyRoute } from './pages/ProtectedRoute'
 import LoadingAnimation1 from './anim/LoadingAnimation1'
@@ -43,6 +45,14 @@ function App() {
         {
           index: true,
           element: <Home />
+        },
+        {
+          path: "home",
+          element: <Home />
+        },
+        {
+          path: "job/:id",
+          element: <JobDetails />
         },
         {
           path: "login",
@@ -90,6 +100,10 @@ function App() {
             {
               path: "build_resume",
               element: <Warning />
+            },
+            {
+              path: "jobs",
+              element: <Jobs />
             }
           ]
         },

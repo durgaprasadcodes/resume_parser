@@ -159,3 +159,78 @@ class Resume(BaseModel):
     improvements: list[Improvement] = Field(
         description="Prioritized and actionable improvements that would increase the resume's alignment with the job description"
     )
+
+
+class Company(BaseModel):
+    display_name: Optional[str] = None
+
+
+class Location(BaseModel):
+    display_name: Optional[str] = None
+
+
+class Job(BaseModel):
+    id: Optional[str] = None
+    title: Optional[str] = None
+
+    company: Optional[Company] = None
+    location: Optional[Location] = None
+
+    description: Optional[str] = None
+
+    salary_min: Optional[float] = None
+    salary_max: Optional[float] = None
+
+    contract_type: Optional[str] = None
+    contract_time: Optional[str] = None
+
+    created: Optional[str] = None
+    redirect_url: Optional[str] = None
+
+
+class JobsResponse(BaseModel):
+    total_jobs: int
+    jobs: List[Job]
+
+
+job_titles = {
+    "software_engineering": [
+        "Software Development Engineer",
+        "Junior Software Engineer",
+        "Software Engineer Intern",
+        "Software Developer Intern",
+    ],
+    "backend_engineering": [
+        "Python Backend Developer",
+        "Backend Developer",
+        "Backend Developer Intern",
+        "Backend Engineer",
+        "Java Backend Developer",
+    ],
+    "frontend_web": [
+        "Frontend Developer",
+        "Frontend Developer Intern",
+        "React Developer",
+        "React Developer Intern",
+    ],
+    "full_stack": [
+        "Full Stack Developer",
+        "Full Stack Developer Intern",
+        "Full Stack Engineer",
+    ],
+    "ai": [
+        "Machine Learning Engineer",
+        "Data Scientist",
+        "AI Engineer",
+    ],
+    "internships": [
+        "Software Engineer Intern",
+        "Software Developer Intern",
+        "Python Developer Intern",
+        "Backend Developer Intern",
+        "Java Developer Intern",
+        "Frontend Developer Intern",
+        "React Developer Intern",
+        "Full Stack Developer Intern",
+    ],
+}
