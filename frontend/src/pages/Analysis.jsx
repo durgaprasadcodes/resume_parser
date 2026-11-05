@@ -41,6 +41,25 @@ ChartJS.register(
 
 const clamp = (n, min, max) => Math.min(Math.max(n, min), max);
 
+function parseAtsScore(value) {
+    const rawScore =
+        typeof value === "number"
+            ? value
+            : Number.parseInt(String(value ?? "").match(/\d{1,3}/)?.[0], 10);
+
+    return Number.isFinite(rawScore) && rawScore >= 0 && rawScore <= 100
+        ? rawScore
+        : null;
+}
+
+const ATS_BREAKDOWN_CATEGORIES = [
+    { key: "technical_skills", label: "Technical skills" },
+    { key: "experience", label: "Experience" },
+    { key: "projects", label: "Projects" },
+    { key: "education", label: "Education" },
+    { key: "keywords", label: "Keywords" },
+];
+
 function getScoreTone(score) {
     if (score >= 80) return "tone-excellent";
     if (score >= 65) return "tone-strong";
@@ -228,6 +247,7 @@ export default function Analysis() {
     const [filename, setFilename] = useState(saved?.filename || "");
     const [filepath, setFilepath] = useState(saved?.filepath || "");
     const [result, setResult] = useState(saved?.result || null);
+    const [ats, setAts] = useState(saved?.ats || null);
     const [error, setError] = useState("");
 
     const fileInputRef = useRef(null);
@@ -272,6 +292,7 @@ export default function Analysis() {
 
     const handleReset = () => {
         setResult(null);
+        setAts(null);
         setFile(null);
         setJd("");
         setError("");
@@ -310,6 +331,12 @@ export default function Analysis() {
             setError("Please select a resume file first.");
             return;
         }
+        if (!jd.trim()) {
+            const msg = "Please enter the target job description.";
+            setError(msg);
+            showError(msg);
+            return;
+        }
         if (!user?.id) {
             const msg = "Your session could not be verified. Please sign in again.";
             setError(msg);
@@ -323,9 +350,7 @@ export default function Analysis() {
         try {
             const formData = new FormData();
             formData.append("file", file);
-            if (jd && jd.trim()) {
-                formData.append("jd", jd.trim());
-            }
+            formData.append("jd", jd.trim());
 
             const response = await api.post("/hirelense/upload_resume", formData, {
                 params: { user_id: user.id },
@@ -337,14 +362,21 @@ export default function Analysis() {
                     : response.data.result;
 
             const newFilename = response.data.filename || file.name || "Resume.pdf";
-            const newFilepath = response.data.url;
+            const newFilepath = response.data.url || "";
+            const newAts = response.data.ats || null;
 
             setResult(parsed);
+            setAts(newAts);
             setFilename(newFilename);
             setFilepath(newFilepath);
 
             // Persist so the report survives a refresh; cleared on logout
-            saveAnalysis({ result: parsed, filename: newFilename, filepath: newFilepath });
+            saveAnalysis({
+                result: parsed,
+                ats: newAts,
+                filename: newFilename,
+                filepath: newFilepath,
+            });
 
             showSuccess("Resume analyzed successfully!");
         } catch (err) {
@@ -361,7 +393,14 @@ export default function Analysis() {
     // --------------------------------------------------
     // DERIVED DATA
     // --------------------------------------------------
-    const atsScore = result?.ats_score ?? 0;
+    const atsScore = parseAtsScore(ats?.overall_score ?? result?.ats_score) ?? 0;
+    const atsBreakdown = ats?.breakdown;
+    const atsCategories = atsBreakdown
+        ? ATS_BREAKDOWN_CATEGORIES.map(({ key, label }) => ({
+              label,
+              score: Number(atsBreakdown[key]),
+          })).filter(({ score }) => Number.isFinite(score))
+        : [];
 
     const atsInterpretation = useMemo(() => {
         if (atsScore >= 80)
@@ -693,7 +732,7 @@ export default function Analysis() {
                                     <div className="jd-input-header">
                                         <label htmlFor="jd-textarea" className="jd-input-title">
                                             <i className="fa-solid fa-briefcase" /> Target Job Description
-                                            <span className="jd-optional-tag">Optional</span>
+                                            <span className="jd-optional-tag">Required</span>
                                         </label>
                                         {jd && (
                                             <button
@@ -811,6 +850,39 @@ export default function Analysis() {
                                 <p className="hero-desc">{atsInterpretation.description}</p>
                             </div>
                         </section>
+
+                        {atsCategories.length > 0 && (
+                            <section className="dash-section glass">
+                                <SectionHeader
+                                    eyebrow="SCORE DETAILS"
+                                    title="ATS Score Breakdown"
+                                    icon="fa-solid fa-chart-simple"
+                                />
+                                <div className="ats-breakdown-grid">
+                                    {atsCategories.map(({ label, score }) => (
+                                        <div className="ats-breakdown-item" key={label}>
+                                            <div className="ats-breakdown-heading">
+                                                <span>{label}</span>
+                                                <strong>{score}/100</strong>
+                                            </div>
+                                            <div
+                                                className="ats-breakdown-track"
+                                                role="progressbar"
+                                                aria-label={`${label} score`}
+                                                aria-valuemin={0}
+                                                aria-valuemax={100}
+                                                aria-valuenow={clamp(score, 0, 100)}
+                                            >
+                                                <div
+                                                    className="ats-breakdown-fill"
+                                                    style={{ width: `${clamp(score, 0, 100)}%` }}
+                                                />
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </section>
+                        )}
 
                         {/* KPIs */}
                         <section className="kpi-grid">
@@ -1012,17 +1084,35 @@ export default function Analysis() {
                                                 <i className="fa-solid fa-building" />
                                             </div>
                                             <div className="exp-body">
-                                                <h4 className="exp-role">{exp?.role || exp?.title || "Role"}</h4>
-                                                <div className="exp-meta">
-                                                    <span className="exp-company">{exp?.company || "Company"}</span>
-                                                    {exp?.duration && (
-                                                        <>
-                                                            <span className="sep">·</span>
-                                                            <span className="exp-duration">{exp.duration}</span>
-                                                        </>
-                                                    )}
-                                                </div>
-                                                {exp?.description && <p className="exp-desc">{exp.description}</p>}
+                                                <h4 className="exp-role">
+                                                    {typeof exp === "string"
+                                                        ? exp
+                                                        : exp?.role || exp?.title || "Role"}
+                                                </h4>
+                                                {typeof exp === "object" && exp !== null && (
+                                                    <>
+                                                        {(exp.company || exp.duration) && (
+                                                            <div className="exp-meta">
+                                                                {exp.company && (
+                                                                    <span className="exp-company">
+                                                                        {exp.company}
+                                                                    </span>
+                                                                )}
+                                                                {exp.duration && (
+                                                                    <>
+                                                                        {exp.company && <span className="sep">·</span>}
+                                                                        <span className="exp-duration">
+                                                                            {exp.duration}
+                                                                        </span>
+                                                                    </>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                        {exp.description && (
+                                                            <p className="exp-desc">{exp.description}</p>
+                                                        )}
+                                                    </>
+                                                )}
                                             </div>
                                         </TiltCard>
                                     ))}

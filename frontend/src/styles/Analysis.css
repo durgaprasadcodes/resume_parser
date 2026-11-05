@@ -941,6 +941,47 @@
     max-width: 660px;
 }
 
+.ats-breakdown-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 20px 28px;
+}
+
+.ats-breakdown-item {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.ats-breakdown-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 650;
+}
+
+.ats-breakdown-heading strong {
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+}
+
+.ats-breakdown-track {
+    height: 8px;
+    overflow: hidden;
+    background: var(--bg-surface-subtle);
+    border-radius: var(--radius-full);
+}
+
+.ats-breakdown-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent-primary), #22c55e);
+    border-radius: inherit;
+    transition: width 500ms ease;
+}
+
 /* ==========================================================================
    SECTION 4: KPI METRIC CARDS (Helvetica Precision Grid)
    ========================================================================== */

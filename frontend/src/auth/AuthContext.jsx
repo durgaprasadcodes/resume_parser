@@ -131,6 +131,12 @@ export function AuthProvider({ children }) {
         setUser(normalizedUser);
     }, []);
 
+    const updateUser = useCallback((userData) => {
+        const updatedUser = { ...user, ...userData };
+        localStorage.setItem("user", JSON.stringify(updatedUser));
+        setUser(updatedUser);
+    }, [user]);
+
     const logout = useCallback(async () => {
         setLoading(true);
         try {
@@ -156,6 +162,7 @@ export function AuthProvider({ children }) {
                 isauthenticated: !!user,
                 loading,
                 login,
+                updateUser,
                 logout,
                 checkAuth,
             }}
