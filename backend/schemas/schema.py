@@ -1,6 +1,5 @@
 from pydantic import EmailStr, field_validator, BaseModel, Field
-from typing import List, Optional, Literal
-from models.model import Users
+from typing import List, Literal
 import re
 from config import ats_score_description
 
@@ -35,6 +34,18 @@ class RegistrationSchema(BaseModel):
 class LoginSchema(BaseModel):
     email: EmailStr
     password: str
+
+
+class ProfileUpdateRequest(BaseModel):
+    name: str
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str) -> str:
+        value = value.strip()
+        if not value or len(value) > 100:
+            raise ValueError("Name must be between 1 and 100 characters.")
+        return value
 
 
 class OTPVerificationSchema(BaseModel):
@@ -79,7 +90,9 @@ class ProjectDescription(BaseModel):
     description: str = Field(
         description="Brief summary of the project, its technical implementation, and what was achieved"
     )
-    project_value: str = Field(description=ats_score_description)
+    project_value: str = Field(
+        description="give me value of ach Project according to the job decription need "
+    )
     score: int = Field(
         ge=0,
         le=100,
@@ -144,9 +157,7 @@ class Improvement(BaseModel):
 
 class Resume(BaseModel):
     name: str = Field(description="Full name of the candidate")
-    ats_score: int = Field(
-        description="ATS score 0-100 using the system-prompt rubric", ge=0, le=100
-    )
+    ats_score: str = Field(description=ats_score_description)
     profession: str = Field(description="Current professional title")
     summary: str = Field(description="Short resume summary")
     skills: SkillAnalysis
@@ -159,78 +170,3 @@ class Resume(BaseModel):
     improvements: list[Improvement] = Field(
         description="Prioritized and actionable improvements that would increase the resume's alignment with the job description"
     )
-
-
-class Company(BaseModel):
-    display_name: Optional[str] = None
-
-
-class Location(BaseModel):
-    display_name: Optional[str] = None
-
-
-class Job(BaseModel):
-    id: Optional[str] = None
-    title: Optional[str] = None
-
-    company: Optional[Company] = None
-    location: Optional[Location] = None
-
-    description: Optional[str] = None
-
-    salary_min: Optional[float] = None
-    salary_max: Optional[float] = None
-
-    contract_type: Optional[str] = None
-    contract_time: Optional[str] = None
-
-    created: Optional[str] = None
-    redirect_url: Optional[str] = None
-
-
-class JobsResponse(BaseModel):
-    total_jobs: int
-    jobs: List[Job]
-
-
-job_titles = {
-    "software_engineering": [
-        "Software Development Engineer",
-        "Junior Software Engineer",
-        "Software Engineer Intern",
-        "Software Developer Intern",
-    ],
-    "backend_engineering": [
-        "Python Backend Developer",
-        "Backend Developer",
-        "Backend Developer Intern",
-        "Backend Engineer",
-        "Java Backend Developer",
-    ],
-    "frontend_web": [
-        "Frontend Developer",
-        "Frontend Developer Intern",
-        "React Developer",
-        "React Developer Intern",
-    ],
-    "full_stack": [
-        "Full Stack Developer",
-        "Full Stack Developer Intern",
-        "Full Stack Engineer",
-    ],
-    "ai": [
-        "Machine Learning Engineer",
-        "Data Scientist",
-        "AI Engineer",
-    ],
-    "internships": [
-        "Software Engineer Intern",
-        "Software Developer Intern",
-        "Python Developer Intern",
-        "Backend Developer Intern",
-        "Java Developer Intern",
-        "Frontend Developer Intern",
-        "React Developer Intern",
-        "Full Stack Developer Intern",
-    ],
-}

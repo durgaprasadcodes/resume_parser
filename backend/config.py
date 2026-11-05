@@ -222,19 +222,25 @@ def invalidate_user(user_id) -> None:
 
 
 ats_score_description = """
-Compute the ATS compatibility score (integer 0-100) of the resume against the Job Description (JD). Be strict, evidence-based and deterministic: the same normalized resume + same JD must always give exactly the same score. Never vary the score because of wording, randomness, reasoning order, re-uploads, repeated evaluation or explanation differences. No subjective impressions: score only resume evidence vs JD requirements.
 
-Rubric (max points):
-1. Required skills/technologies (30): match languages, frameworks, libraries, databases, platforms, tools. Required skills outweigh preferred. No points for skills the resume does not support.
-2. Responsibility alignment (20): compare JD responsibilities with demonstrated projects/experience/work. Points only with evidence.
-3. Project relevance (20): relevance to JD, technical depth, implementation, deployment, scale, outcomes. No extra points for multiple projects using the same technology.
-4. Experience alignment (15): relevant internships/professional experience weighs far more than unrelated. Education is NOT professional experience. No relevant experience = no points; never invent it.
-5. Education & certifications (10): only JD-relevant ones count; generic/unrelated certifications earn little.
-6. Keyword alignment (5): JD terms must appear naturally with evidence of real use. No credit for keyword stuffing.
+Compute the ATS Score for this resume for job descrition with this techinic
+WEIGHTS = {
+    "technical_skills": 0.35,
+    "experience": 0.25,
+    "projects": 0.20,
+    "education": 0.10,
+    "keywords": 0.10,
+}
+score = (
+        data.technical_skills * WEIGHTS["technical_skills"]
+        + data.experience * WEIGHTS["experience"]
+        + data.projects * WEIGHTS["projects"]
+        + data.education * WEIGHTS["education"]
+        + data.keywords * WEIGHTS["keywords"]
+    )
+    
+give the final score as ATS Score
 
-Bands: 90-100 exceptional (major requirements strongly met, substantial evidence); 80-89 strong (most important requirements met, minor gaps); 70-79 good/moderate (many met, noticeable gaps); 60-69 limited (several important requirements missing/weak); 40-59 poor (major requirements missing/unsupported); 0-39 very poor (little evidence of suitability).
-
-Rules: Do not inflate for a generally impressive resume; score only fit to this JD. Do not penalize absence of things the JD neither requires nor prefers. Never invent experience, skills, projects, certifications or achievements.
 """
 
 SYSTEM_PROMPT = """You are an expert ATS/HR analyst. Compare the resume to the Job Description (JD) and fill the required structured output. Use only evidence in the resume and requirements in the JD. Never invent experience, skills, projects, certifications or achievements.
@@ -251,30 +257,3 @@ NEGATIVES (critical but fair; each item states WHAT is wrong, WHY it matters for
 POSITIVES (specific, resume-based, explain WHY each strengthens the application; do not just list keywords): JD-aligned skills shown in projects/experience; summary alignment; relevant projects (complexity, deployment, APIs, databases, ML/AI, cloud) and credible metrics; useful project diversity; relevant experience; relevant certifications; credibility evidence (deployed apps, measurable outcomes, production-like architecture); ATS/recruiter value.
 
 LENGTH LIMITS (keep the response compact and always complete): at most 6 negatives and 5 positives, each at most 2 sentences; project_value at most 2 sentences; empty list when there is no work experience. Respond only with the structured output."""
-
-
-demo_job_description = "Machine Learning internship only for regression dont need any Deep Learing ,but must need Rag side for 1 month without any experinece (0) with react.js for frotend at nexlayer.pvt"
-
-"""
-    As a Machine Learning intern at NayePankh Foundation, you will have the opportunity to apply your expertise in Machine Learning, Python, Data Analytics, R Programming, Data Science, Natural Language Processing (NLP), Deep Learning, and Artificial Intelligence to drive innovative solutions in the field of education. Your responsibilities will include:
-
-1. Developing and implementing machine learning models to enhance educational tools and resources.
-2. Conducting data analysis to gain insights into student learning patterns and behavior.
-3. Collaborating with cross-functional teams to integrate machine learning capabilities into existing systems.
-4. Utilizing NLP techniques to improve communication and interaction with students and teachers.
-5. Exploring deep learning algorithms to optimize educational content delivery and personalization.
-6. Contributing to the research and development of AI-driven solutions for educational challenges.
-7. Assisting in the design and execution of experiments to evaluate the effectiveness of machine learning solutions in educational settings.
-
-Join us at NayePankh Foundation and make a meaningful impact on the future of education through advanced machine learning technologies.
-Skill(s) required
-Artificial intelligence
-Data Analytics
-Data Science
-Deep Learning
-Machine Learning
-Natural Language Processing (NLP)
-Python
-R Programming
-
-"""

@@ -6,7 +6,6 @@ from config import limiter, FRONTEND_URL, GOOGLE_SESSION_SECRET
 from starlette.middleware.sessions import SessionMiddleware
 from config import IS_PRODUCTION
 from agent.bot import agent_router
-from jobs.jobs import job_router
 
 app = FastAPI(
     title="Hirelense.ai API",
@@ -49,5 +48,3 @@ app.include_router(router)
 app.include_router(google_router)
 
 app.include_router(agent_router)
-
-app.include_router(job_router)

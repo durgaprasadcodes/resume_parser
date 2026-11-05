@@ -15,6 +15,7 @@ from schemas.schema import (
     ForgotPasswordRequest,
     VerifyResetOTPRequest,
     ChangePasswordRequest,
+    ProfileUpdateRequest,
 )
 from config import (
     hash_password,
@@ -253,6 +254,33 @@ async def verify_otp(
 @router.get("/me")
 async def get_current_user(user: dict = Depends(get_user_info)):
     return user
+
+
+@router.patch("/profile")
+async def update_profile(
+    data: ProfileUpdateRequest,
+    current_user: dict = Depends(get_user_info),
+    db: Session = Depends(get_db),
+):
+    user = db.query(Users).filter(Users.id == current_user["id"]).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found.",
+        )
+
+    user.name = data.name
+    db.commit()
+    db.refresh(user)
+    invalidate_user(user.id)
+
+    return {
+        "id": str(user.id),
+        "name": user.name,
+        "email": user.email,
+        "picture": user.picture,
+        "is_verified": user.is_verified,
+    }
 
 
 from datetime import datetime, timedelta, timezone

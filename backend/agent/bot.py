@@ -1,41 +1,41 @@
 import os
 import json
-import uuid
+import uuid, pymupdf
+from datetime import datetime, timezone
 from pathlib import Path
 from database import get_db
 from dotenv import load_dotenv
 from schemas.schema import Resume
 from langchain_groq import ChatGroq
-from models.model import Users, Resumes
+from models.model import Resumes, Users
 from tempfile import NamedTemporaryFile
 from sqlalchemy.orm import Session
-from langchain_community.document_loaders import PyMuPDFLoader
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from config import limiter, demo_job_description, SYSTEM_PROMPT, supabase
-from fastapi import UploadFile, File, status, HTTPException, APIRouter, Request, Depends
+from config import limiter, SYSTEM_PROMPT, supabase
+from fastapi import (
+    UploadFile,
+    File,
+    Form,
+    HTTPException,
+    APIRouter,
+    Request,
+    Depends,
+    Query,
+)
 from tokens.get_user_info import get_user_info
 
 load_dotenv()
+
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-PGVECTOR_DATABASE_API_KEY = os.getenv("PGVECTOR_DATABASE_API_KEY")
 
 
-def docs_to_text(docs) -> str:
+def get_text(file_path):
 
-    if isinstance(docs, str):
-        return docs
-    return "\n".join(d.page_content for d in docs)
-
-
-def split_documents(file_path):
-
-    loader = PyMuPDFLoader(file_path)
-    document = loader.load()
-    splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=75)
-    chunks = splitter.split_documents(document)
-
-    return chunks
+    doc = pymupdf.open(file_path)
+    text = ""
+    for page in doc:
+        text += page.get_text()
+    return text
 
 
 def analyze_resume_vs_jd_groq(structured_llm, resume_text, jd_text: str) -> Resume:
@@ -50,7 +50,7 @@ def analyze_resume_vs_jd_groq(structured_llm, resume_text, jd_text: str) -> Resu
         ("system", system_prompt),
         (
             "human",
-            f"JOB DESCRIPTION:\n{jd_text}\n\nRESUME TEXT:\n{docs_to_text(resume_text)}",
+            f"JOB DESCRIPTION:\n{jd_text}\n\nRESUME TEXT:\n{resume_text}",
         ),
     ]
     result = structured_llm.invoke(messages)
@@ -64,7 +64,6 @@ LLM = ChatGroq(
     model="qwen/qwen3.8-27b",
     temperature=0.3,
     max_retries=5,
-    # max_tokens=1000,
     api_key=GROQ_API_KEY,
 )
 
@@ -78,6 +77,7 @@ MAX_FILE_SIZE = 10 * 1024 * 1024
 async def upload_resume(
     request: Request,
     user_id: str,
+    jd: str = Form(default=""),
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_user_info),
@@ -86,6 +86,9 @@ async def upload_resume(
         raise HTTPException(
             status_code=403, detail="User ID does not match authenticated user"
         )
+    user_uuid = uuid.UUID(user_id)
+    if jd == "":
+        raise HTTPException(status_code=413, detail="Job Description Not Found")
 
     file_path = None
 
@@ -111,10 +114,10 @@ async def upload_resume(
             temp_file.write(file_bytes)
             file_path = temp_file.name
 
-        resume_text = split_documents(file_path)
+        resume_text = get_text(file_path)
 
         result = analyze_resume_vs_jd_groq(
-            LLM.with_structured_output(Resume), resume_text, demo_job_description
+            LLM.with_structured_output(Resume), resume_text, jd
         )
 
         storage_path = f"{user_id}/{uuid.uuid4()}.pdf"
@@ -128,28 +131,16 @@ async def upload_resume(
             },
         )
 
-        ONE_YEAR = 60 * 60 * 24 * 365
-
-        signed = supabase.storage.from_("resumes").create_signed_url(
-            storage_path, ONE_YEAR
-        )
-
-        supabase_url = signed["signedURL"]
-
-        resume_name = Path(filename).stem
-
         resume_record = (
             db.query(Resumes)
-            .filter(Resumes.resume_name == resume_name, Resumes.user_id == user_id)
+            .filter(Resumes.resume_name == filename, Resumes.user_id == user_uuid)
             .first()
         )
 
         if resume_record:
-            resume_record.resume_url = supabase_url
+            resume_record.uploaded_at = datetime.now(timezone.utc)
         else:
-            resume_record = Resumes(
-                resume_name=resume_name, resume_url=supabase_url, user_id=user_id
-            )
+            resume_record = Resumes(resume_name=filename, user_id=user_uuid)
             db.add(resume_record)
 
         db.commit()
@@ -158,7 +149,6 @@ async def upload_resume(
         return {
             "message": "File uploaded successfully",
             "filename": filename,
-            "url": supabase_url,
             "result": result,
         }
 
@@ -174,3 +164,44 @@ async def upload_resume(
     finally:
         if file_path:
             Path(file_path).unlink(missing_ok=True)
+
+
+@agent_router.get("/get_resumes")
+async def get_upload_resume(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=5, ge=1, le=5),
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_user_info),
+):
+    user_id = uuid.UUID(current_user["id"])
+    user = db.query(Users).filter(Users.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    resumes_query = db.query(Resumes).filter(Resumes.user_id == user_id)
+    total_resumes = resumes_query.count()
+    resumes = (
+        resumes_query.order_by(Resumes.uploaded_at.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
+
+    return {
+        "success": True,
+        "member_since": user.created_at.isoformat() if user.created_at else None,
+        "total_resumes": total_resumes,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": max(1, (total_resumes + page_size - 1) // page_size),
+        "resumes": [
+            {
+                "id": str(resume.id),
+                "resume_name": resume.resume_name,
+                "uploaded_at": (
+                    resume.uploaded_at.isoformat() if resume.uploaded_at else None
+                ),
+            }
+            for resume in resumes
+        ],
+    }

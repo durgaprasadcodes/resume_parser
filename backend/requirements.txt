@@ -38,6 +38,7 @@ langchain
 langchain-core
 langchain-community
 langchain-text-splitters 
+spacy
 
 # LLM 
 langchain-groq

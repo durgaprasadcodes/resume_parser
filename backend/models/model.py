@@ -37,7 +37,6 @@ class Resumes(BASE):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     resume_name = Column(String, nullable=False)
-    resume_url = Column(Text)
     user_id = Column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
     )
