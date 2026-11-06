@@ -10,7 +10,7 @@ import amazonPng from "../assets/amazon.png";
 import resumeAnalysis from "../assets/resume-analysis.png"
 import person_1 from "../assets/person_1.jpeg"
 import person_2 from "../assets/person_2.jpeg"
-import person_3 from "../assets/person_3.png"
+import person_3 from "../assets/person_3.jpeg"
 
 export default function Home() {
     const { isauthenticated } = useAuth();
