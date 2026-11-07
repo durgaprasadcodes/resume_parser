@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api/api';
 import { showSuccess, showError, extractErrorMessage } from '../lib/toast';
+import PasswordVisibilityIcon from '../components/PasswordVisibilityIcon';
 import "../styles/ForgotPassword.css"
 
 export default function ForgotPassword() {
@@ -12,6 +13,10 @@ export default function ForgotPassword() {
     const [changePassword, setChangePassword] = useState(false);
     const [resetToken, setResetToken] = useState("");
     const [showForgotPasswordPage, setShowForgotPasswordPage] = useState(true);
+    const [passwordVisibility, setPasswordVisibility] = useState({
+        password: false,
+        confirmPassword: false,
+    });
 
     const BackToLoginPage = () => {
         navigate("/login");
@@ -114,20 +119,46 @@ export default function ForgotPassword() {
                             <p className="fp-subtitle">
                                 Enter your new password.
                             </p>
-                            <input
-                                className="fp-input"
-                                type="password"
-                                id='password'
-                                placeholder="Enter your password"
-                                required
-                            />
-                            <input
-                                className="fp-input"
-                                type="password"
-                                id='confirm-password'
-                                placeholder="Confirm your password"
-                                required
-                            />
+                            <div className="fp-password-input-wrap">
+                                <input
+                                    className="fp-input"
+                                    type={passwordVisibility.password ? "text" : "password"}
+                                    id='password'
+                                    placeholder="Enter your password"
+                                    required
+                                />
+                                <button
+                                    type="button"
+                                    className="fp-password-toggle"
+                                    aria-label={passwordVisibility.password ? "Hide password" : "Show password"}
+                                    onClick={() => setPasswordVisibility((visibility) => ({
+                                        ...visibility,
+                                        password: !visibility.password,
+                                    }))}
+                                >
+                                    <PasswordVisibilityIcon visible={passwordVisibility.password} />
+                                </button>
+                            </div>
+                            <div className="fp-password-input-wrap">
+                                <input
+                                    className="fp-input"
+                                    type={passwordVisibility.confirmPassword ? "text" : "password"}
+                                    id='confirm-password'
+                                    placeholder="Confirm your password"
+                                    required
+                                />
+                                <button
+                                    type="button"
+                                    className="fp-password-toggle"
+                                    aria-label={passwordVisibility.confirmPassword ? "Hide password" : "Show password"}
+                                    onClick={() => setPasswordVisibility((visibility) => ({
+                                        ...visibility,
+                                        confirmPassword: !visibility.confirmPassword,
+                                    }))}
+                                >
+                                    <PasswordVisibilityIcon visible={passwordVisibility.confirmPassword} />
+                                </button>
+                            </div>
                             <button className="fp-btn-primary" type="submit" disabled={loading}>{loading ? "Changing Password..." : "Change Password"}</button>
                         </form>
                         <button className="fp-btn-secondary" onClick={BackToLoginPage}>Back to Login</button>

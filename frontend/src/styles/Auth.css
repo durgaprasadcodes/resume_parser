@@ -167,6 +167,30 @@
     pointer-events: none;
 }
 
+.input-box .password-toggle {
+    position: absolute;
+    top: 50%;
+    right: 18px;
+    transform: translateY(-50%);
+    padding: 4px;
+    border: 0;
+    background: transparent;
+    color: #888888;
+    cursor: pointer;
+    line-height: 1;
+}
+
+.input-box .password-toggle:hover,
+.input-box .password-toggle:focus-visible {
+    color: #333333;
+}
+
+.input-box .password-toggle svg {
+    display: block;
+    width: 18px;
+    height: 18px;
+}
+
 /* Forgot Password */
 .forgot-link {
     margin: -4px 0 12px;

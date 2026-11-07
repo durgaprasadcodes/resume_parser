@@ -4,6 +4,7 @@ import api from "../api/api";
 import { useAuth } from "./AuthContext";
 import { showSuccess, showError } from "../lib/toast";
 import hirelenseLogo from "../assets/hirelense.png";
+import PasswordVisibilityIcon from "../components/PasswordVisibilityIcon";
 import "../styles/Auth.css";
 
 function Login({ initialSignup = false }) {
@@ -20,6 +21,11 @@ function Login({ initialSignup = false }) {
     });
 
     const [loading, setLoading] = useState(false);
+    const [passwordVisibility, setPasswordVisibility] = useState({
+        login: false,
+        signup: false,
+        confirmSignup: false,
+    });
     const [error, setError] = useState(
         () => new URLSearchParams(window.location.search).get("error") || ""
     );
@@ -312,14 +318,24 @@ function Login({ initialSignup = false }) {
 
                         <div className="input-box">
                             <input
-                                type="password"
+                                type={passwordVisibility.login ? "text" : "password"}
                                 name="password"
                                 placeholder="Password"
                                 value={formData.password}
                                 onChange={handleChange}
                                 required
                             />
-                            <i class='bx bx-lock-alt'></i>
+                            <button
+                                type="button"
+                                className="password-toggle"
+                                aria-label={passwordVisibility.login ? "Hide password" : "Show password"}
+                                onClick={() => setPasswordVisibility((visibility) => ({
+                                    ...visibility,
+                                    login: !visibility.login,
+                                }))}
+                            >
+                                <PasswordVisibilityIcon visible={passwordVisibility.login} />
+                            </button>
                         </div>
 
                         <div className="forgot-link">
@@ -438,26 +454,46 @@ function Login({ initialSignup = false }) {
 
                         <div className="input-box">
                             <input
-                                type="password"
+                                type={passwordVisibility.signup ? "text" : "password"}
                                 name="password"
                                 placeholder="Password"
                                 value={formData.password}
                                 onChange={handleChange}
                                 required
                             />
-                            <i class='bx bx-lock-alt'></i>
+                            <button
+                                type="button"
+                                className="password-toggle"
+                                aria-label={passwordVisibility.signup ? "Hide password" : "Show password"}
+                                onClick={() => setPasswordVisibility((visibility) => ({
+                                    ...visibility,
+                                    signup: !visibility.signup,
+                                }))}
+                            >
+                                <PasswordVisibilityIcon visible={passwordVisibility.signup} />
+                            </button>
                         </div>
 
                         <div className="input-box">
                             <input
-                                type="password"
+                                type={passwordVisibility.confirmSignup ? "text" : "password"}
                                 name="confirmPassword"
                                 placeholder="Confirm password"
                                 value={formData.confirmPassword}
                                 onChange={handleChange}
                                 required
                             />
-                            <i class='bx bx-lock-alt'></i>
+                            <button
+                                type="button"
+                                className="password-toggle"
+                                aria-label={passwordVisibility.confirmSignup ? "Hide password" : "Show password"}
+                                onClick={() => setPasswordVisibility((visibility) => ({
+                                    ...visibility,
+                                    confirmSignup: !visibility.confirmSignup,
+                                }))}
+                            >
+                                <PasswordVisibilityIcon visible={passwordVisibility.confirmSignup} />
+                            </button>
                         </div>
 
                         <button
